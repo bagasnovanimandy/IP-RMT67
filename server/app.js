@@ -1,8 +1,11 @@
+// app.js
 const express = require("express");
 const cors = require("cors");
 
+const routes = require("./routes"); //! router utama
+
 const app = express();
-const PORT = 3000; //! Sesuaikan port server-mu
+const PORT = 3000;
 
 app.use(cors());
 app.use(express.json());
@@ -15,6 +18,9 @@ app.get("/health", (req, res) => {
   });
 });
 
+//! Pakai router utama untuk semua endpoint API
+app.use("/api", routes);
+
 //! 404 handler sederhana
 app.use((req, res, next) => {
   res.status(404).json({
@@ -25,8 +31,8 @@ app.use((req, res, next) => {
 //! Global error handler sederhana
 app.use((err, req, res, next) => {
   console.log(err, "<-- Global Error Handler");
-  res.status(500).json({
-    message: "Internal Server Error",
+  res.status(err.status || 500).json({
+    message: err.message || "Internal Server Error",
   });
 });
 
