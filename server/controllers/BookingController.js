@@ -1,65 +1,33 @@
-const { Booking, Vehicle, User } = require("../models");
+const express = require("express");
+const VehicleController = require("../controllers/VehicleController");
+const UserController = require("../controllers/UserController");
+const BookingController = require("../controllers/BookingController");
+const authentication = require("../middleware/authentication");
+const { canManageBooking, adminOnly } = require("../middleware/authorization");
 
-class BookingController {
-  //! POST /api/bookings
-  static async create(req, res, next) {
-    try {
-      const { VehicleId, startDate, endDate } = req.body;
-      const { id: UserId } = req.user;
+const router = express.Router();
 
-      if (!VehicleId || !startDate || !endDate)
-        return res
-          .status(400)
-          .json({ message: "VehicleId, startDate, endDate wajib diisi" });
+// Auth
+router.post("/register", UserController.register);
+router.post("/login", UserController.login);
 
-      const vehicle = await Vehicle.findByPk(VehicleId);
-      if (!vehicle)
-        return res.status(404).json({ message: "Vehicle not found" });
+// Public
+router.get("/vehicles", VehicleController.list);
+router.get("/vehicles/:id", VehicleController.detail);
 
-      const diffDays =
-        (new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24);
-      if (diffDays < 1)
-        return res.status(400).json({ message: "Durasi minimal 1 hari" });
+// Protected
+router.use(authentication);
+router.post("/bookings", BookingController.create);
+router.get("/bookings/me", BookingController.myBookings);
 
-      const totalPrice = Math.round(diffDays) * vehicle.dailyPrice;
+// Cancel (owner atau admin)
+router.patch(
+  "/bookings/:id/cancel",
+  canManageBooking,
+  BookingController.cancel
+);
 
-      const newBooking = await Booking.create({
-        UserId,
-        VehicleId,
-        startDate,
-        endDate,
-        totalPrice,
-        status: "PENDING",
-      });
+// Admin ubah status booking bebas
+router.patch("/bookings/:id/status", adminOnly, BookingController.updateStatus);
 
-      res.status(201).json({
-        message: "Booking berhasil dibuat",
-        booking: newBooking,
-      });
-    } catch (err) {
-      console.log("BookingController.create", err);
-      next(err);
-    }
-  }
-
-  //! GET /api/bookings/me
-  static async myBookings(req, res, next) {
-    try {
-      const { id: UserId } = req.user;
-      const data = await Booking.findAll({
-        where: { UserId },
-        include: {
-          model: Vehicle,
-          attributes: ["name", "dailyPrice", "imgUrl"],
-        },
-        order: [["id", "DESC"]],
-      });
-      res.status(200).json(data);
-    } catch (err) {
-      console.log("BookingController.myBookings", err);
-      next(err);
-    }
-  }
-}
-
-module.exports = BookingController;
+module.exports = router;
