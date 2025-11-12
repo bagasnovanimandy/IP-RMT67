@@ -1,14 +1,23 @@
+import { Routes, Route, Navigate } from "react-router";
+import Navbar from "./components/Navbar";
+import HomePage from "./pages/Home.page";
+import LoginPage from "./pages/Login.page";
+import RegisterPage from "./pages/Register.page";
+import VehicleDetailPage from "./pages/VehicleDetail.page";
+
 export default function App() {
   return (
-    <div className="min-vh-100 d-flex align-items-center justify-content-center bg-light">
-      <div className="card shadow-sm" style={{ width: "28rem" }}>
-        <div className="card-body text-center">
-          <h1 className="h3 mb-3">Galindo Car Rental</h1>
-          <p className="text-muted mb-0">
-            Client is up and running. We will build the pages step by step.
-          </p>
-        </div>
+    <>
+      <Navbar />
+      <div className="container py-4">
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/vehicles/:id" element={<VehicleDetailPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </div>
-    </div>
+    </>
   );
 }

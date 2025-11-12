@@ -1,62 +1,43 @@
-// controllers/UserController.js
+const { OAuth2Client } = require("google-auth-library");
 const { User } = require("../models");
-const { comparePassword } = require("../helpers/bcrypt");
 const { signToken } = require("../helpers/jwt");
+const { GOOGLE_CLIENT_ID } = require("../config/thirdparty");
 
 class UserController {
-  //! POST /api/register
-  static async register(req, res, next) {
+  //! POST /api/google-login
+  static async googleLogin(req, res, next) {
     try {
-      const { name, email, password, phoneNumber } = req.body;
-
-      const user = await User.create({
-        name,
-        email,
-        password,
-        phoneNumber,
-        role: "customer", //! register biasa selalu customer
-      });
-
-      res.status(201).json({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-      });
-    } catch (err) {
-      console.log(err, "<-- UserController.register error");
-      next(err);
-    }
-  }
-
-  //! POST /api/login
-  static async login(req, res, next) {
-    try {
-      const { email, password } = req.body;
-
-      if (!email || !password) {
-        return res.status(400).json({
-          message: "Email and password are required",
-        });
+      const { id_token } = req.body;
+      if (!id_token) {
+        return res.status(400).json({ message: "id_token is required" });
       }
 
-      const user = await User.findOne({ where: { email } });
+      const client = new OAuth2Client(GOOGLE_CLIENT_ID);
+      const ticket = await client.verifyIdToken({
+        idToken: id_token,
+        audience: GOOGLE_CLIENT_ID,
+      });
 
+      const payload = ticket.getPayload(); // email, name, picture, dsb.
+      const email = payload?.email;
+      const name = payload?.name || email?.split("@")[0] || "Google User";
+      if (!email) {
+        return res.status(400).json({ message: "Invalid Google token" });
+      }
+
+      // cari / buat user
+      let user = await User.findOne({ where: { email } });
       if (!user) {
-        return res.status(401).json({
-          message: "Invalid email/password",
-        });
-      }
-
-      const isValid = comparePassword(password, user.password);
-
-      if (!isValid) {
-        return res.status(401).json({
-          message: "Invalid email/password",
+        user = await User.create({
+          name,
+          email,
+          password: Math.random().toString(36).slice(-8),
+          pictureUrl: payload?.picture || null,
+          role: "customer",
         });
       }
 
       const access_token = signToken({ id: user.id });
-
       res.status(200).json({
         access_token,
         user: {
@@ -64,10 +45,11 @@ class UserController {
           name: user.name,
           email: user.email,
           role: user.role,
+          pictureUrl: user.pictureUrl,
         },
       });
     } catch (err) {
-      console.log(err, "<-- UserController.login error");
+      console.log("googleLogin error:", err);
       next(err);
     }
   }
