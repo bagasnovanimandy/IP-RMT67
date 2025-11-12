@@ -18,60 +18,23 @@ function rupiah(n) {
 export default function RecommendationsPage() {
   const q = useQuery().get("query") || "";
   const [loading, setLoading] = useState(true);
-  const [reason, setReason] = useState(""); // ringkasan “alasan” (nanti dari Gemini)
+  const [reason, setReason] = useState("");
+  const [filters, setFilters] = useState(null);
   const [items, setItems] = useState([]);
   const [err, setErr] = useState("");
 
   useEffect(() => {
     let alive = true;
 
-    async function fetchRecommendations() {
+    async function run() {
       setLoading(true);
       setErr("");
       try {
-        // === PLACEHOLDER LOGIC ===
-        // Contoh sangat sederhana: deteksi kata kunci & panggil /vehicles dengan filter yang mendekati.
-        const lower = q.toLowerCase();
-
-        let min, max, type, city;
-        if (lower.includes("keluarga") || lower.includes("rombongan"))
-          type = "MPV";
-        if (
-          lower.includes("banyak orang") ||
-          lower.includes("rombongan") ||
-          lower.includes("elf") ||
-          lower.includes("hiace")
-        )
-          type = "VAN";
-        if (lower.includes("hemat") || lower.includes("murah")) max = 350000;
-        if (lower.includes("bandung")) city = "Bandung";
-        if (lower.includes("jakarta")) city = "Jakarta";
-
-        const params = {
-          q: type, // kita pakai ke kolom type/name/brand
-          min,
-          max,
-          city,
-          sort: "dailyPrice",
-          order: "ASC",
-          page: 1,
-          limit: 12,
-        };
-
-        const { data } = await serverApi.get("/vehicles", { params });
-
+        const { data } = await serverApi.post("/ai/recommend", { prompt: q });
         if (!alive) return;
-
+        setReason(data?.reason || "");
+        setFilters(data?.filters || null);
         setItems(data?.data || []);
-        setReason(
-          `Rekomendasi berdasarkan prompt: “${q}”. ` +
-            `Filter awal: ${type ? `tipe ${type}, ` : ""}${
-              city ? `kota ${city}, ` : ""
-            }` +
-            `${min ? `min Rp ${min}, ` : ""}${
-              max ? `max Rp ${max}` : ""
-            }`.trim()
-        );
       } catch (e) {
         if (!alive) return;
         const msg =
@@ -84,7 +47,7 @@ export default function RecommendationsPage() {
       }
     }
 
-    fetchRecommendations();
+    run();
     return () => {
       alive = false;
     };
@@ -105,7 +68,9 @@ export default function RecommendationsPage() {
       </div>
 
       {loading ? (
-        <p className="text-center my-5">Menganalisis kebutuhanmu...</p>
+        <p className="text-center my-5">
+          Menganalisis kebutuhanmu via Gemini...
+        </p>
       ) : err ? (
         <div className="alert alert-danger">{err}</div>
       ) : (
@@ -113,12 +78,40 @@ export default function RecommendationsPage() {
           <div className="card border-0 shadow-sm mb-4">
             <div className="card-body">
               <h2 className="h6 mb-2">Alasan singkat</h2>
-              <p className="mb-0">
+              <p className="mb-2">
                 {reason || "Analisis AI akan muncul di sini."}
               </p>
-              <small className="text-muted d-block mt-1">
-                *Akan ditingkatkan dengan Gemini untuk memahami konteks lengkap.
-              </small>
+
+              {filters && (
+                <div className="small text-muted">
+                  <span className="me-2">Filter:</span>
+                  {filters.city && (
+                    <span className="badge text-bg-light me-2">
+                      City: {filters.city}
+                    </span>
+                  )}
+                  {filters.type && (
+                    <span className="badge text-bg-light me-2">
+                      Type: {filters.type}
+                    </span>
+                  )}
+                  {Number.isFinite(filters.people) && (
+                    <span className="badge text-bg-light me-2">
+                      People: {filters.people}
+                    </span>
+                  )}
+                  {Number.isFinite(filters.min) && (
+                    <span className="badge text-bg-light me-2">
+                      Min: Rp {rupiah(filters.min)}
+                    </span>
+                  )}
+                  {Number.isFinite(filters.max) && (
+                    <span className="badge text-bg-light">
+                      Max: Rp {rupiah(filters.max)}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
