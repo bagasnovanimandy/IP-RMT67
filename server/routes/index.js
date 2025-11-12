@@ -1,16 +1,22 @@
 const express = require("express");
 const VehicleController = require("../controllers/VehicleController");
 const UserController = require("../controllers/UserController");
+const BookingController = require("../controllers/BookingController");
+const authentication = require("../middleware/authentication");
 
 const router = express.Router();
 
 // Auth
 router.post("/register", UserController.register);
 router.post("/login", UserController.login);
-router.post("/google-login", UserController.googleLogin); // <-- baru
 
-// Public Vehicles
+// Public
 router.get("/vehicles", VehicleController.list);
 router.get("/vehicles/:id", VehicleController.detail);
+
+// Protected
+router.use(authentication);
+router.post("/bookings", BookingController.create);
+router.get("/bookings/me", BookingController.myBookings);
 
 module.exports = router;
