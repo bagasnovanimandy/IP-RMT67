@@ -1,45 +1,105 @@
+const { Op } = require("sequelize");
 const { Vehicle, Branch } = require("../models");
 
 class VehicleController {
-  //! GET /api/vehicles
+  // GET /api/vehicles?q=&city=&min=&max=&sort=&order=&page=&limit=
   static async list(req, res, next) {
     try {
-      const vehicles = await Vehicle.findAll({
-        include: {
+      const {
+        q = "",
+        city = "",
+        min = "",
+        max = "",
+        sort = "createdAt",
+        order = "DESC",
+        page = "1",
+        limit = "9",
+      } = req.query;
+
+      // sanitasi & default
+      const _page = Math.max(1, parseInt(page) || 1);
+      const _limit = Math.min(24, Math.max(1, parseInt(limit) || 9)); // batasi 24 per halaman
+      const offset = (_page - 1) * _limit;
+
+      // WHERE vehicles
+      const where = {};
+      if (min || max) {
+        const _min = Number.isFinite(+min) ? +min : 0;
+        const _max = Number.isFinite(+max) ? +max : undefined;
+        where.dailyPrice = _max
+          ? { [Op.between]: [_min, _max] }
+          : { [Op.gte]: _min };
+      }
+
+      if (q) {
+        const term = `%${q}%`;
+        where[Op.or] = [
+          { name: { [Op.iLike]: term } },
+          { brand: { [Op.iLike]: term } },
+          { type: { [Op.iLike]: term } },
+          { plateNumber: { [Op.iLike]: term } },
+          // deskripsi bisa berat—ikutkan kalau perlu:
+          // { description: { [Op.iLike]: term } },
+        ];
+      }
+
+      // FILTER cabang
+      const include = [
+        {
           model: Branch,
-          attributes: ["id", "name", "city"],
+          required: false,
+          where: city ? { city } : undefined,
+          attributes: ["id", "name", "city", "address"],
         },
-        order: [["id", "ASC"]],
+      ];
+
+      // SORT aman
+      const sortable = new Set(["createdAt", "dailyPrice", "year", "name"]);
+      const sortKey = sortable.has(String(sort)) ? String(sort) : "createdAt";
+      const sortOrder = String(order).toUpperCase() === "ASC" ? "ASC" : "DESC";
+
+      const { rows, count } = await Vehicle.findAndCountAll({
+        where,
+        include,
+        order: [[sortKey, sortOrder]],
+        limit: _limit,
+        offset,
       });
 
-      res.status(200).json(vehicles);
+      const totalPages = Math.max(1, Math.ceil(count / _limit));
+
+      res.status(200).json({
+        data: rows,
+        meta: {
+          page: _page,
+          limit: _limit,
+          total: count,
+          totalPages,
+          sort: sortKey,
+          order: sortOrder,
+          q: q || "",
+          city: city || "",
+          min: min || "",
+          max: max || "",
+        },
+      });
     } catch (err) {
-      console.log(err, "<-- VehicleController.list error");
       next(err);
     }
   }
 
-  //! GET /api/vehicles/:id
+  // GET /api/vehicles/:id (biarkan punyamu yang lama)
   static async detail(req, res, next) {
     try {
       const { id } = req.params;
-
-      const vehicle = await Vehicle.findByPk(id, {
-        include: {
-          model: Branch,
-          attributes: ["id", "name", "city", "address"],
-        },
+      const found = await Vehicle.findByPk(id, {
+        include: [
+          { model: Branch, attributes: ["id", "name", "city", "address"] },
+        ],
       });
-
-      if (!vehicle) {
-        return res.status(404).json({
-          message: "Vehicle not found",
-        });
-      }
-
-      res.status(200).json(vehicle);
+      if (!found) return res.status(404).json({ message: "Vehicle not found" });
+      res.status(200).json(found);
     } catch (err) {
-      console.log(err, "<-- VehicleController.detail error");
       next(err);
     }
   }

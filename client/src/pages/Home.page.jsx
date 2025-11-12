@@ -10,71 +10,73 @@ function rupiah(n) {
   }
 }
 
+const CITY_OPTIONS = ["ALL", "Jakarta", "Bandung"]; // dari seed saat ini
+
 export default function HomePage() {
-  const [vehicles, setVehicles] = useState([]);
+  // query state
+  const [q, setQ] = useState("");
+  const [city, setCity] = useState("ALL");
+  const [min, setMin] = useState("");
+  const [max, setMax] = useState("");
+  const [sort, setSort] = useState("createdAt");
+  const [order, setOrder] = useState("DESC");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(9);
+
+  // data state
+  const [items, setItems] = useState([]);
+  const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
-  // UI state: search, filter, pagination
-  const [q, setQ] = useState("");
-  const [city, setCity] = useState("ALL");
-  const [perPage, setPerPage] = useState(6);
-  const [page, setPage] = useState(1);
+  // compose params (city=ALL -> kosong)
+  const params = useMemo(() => {
+    const p = {
+      q: q || undefined,
+      city: city !== "ALL" ? city : undefined,
+      min: min || undefined,
+      max: max || undefined,
+      sort,
+      order,
+      page,
+      limit,
+    };
+    return p;
+  }, [q, city, min, max, sort, order, page, limit]);
 
-  // fetch data
+  // fetch server-side
   useEffect(() => {
+    let alive = true;
     (async () => {
+      setLoading(true);
+      setErr("");
       try {
-        const { data } = await serverApi.get("/vehicles");
-        setVehicles(data || []);
+        const { data } = await serverApi.get("/vehicles", { params });
+        if (!alive) return;
+        setItems(data?.data || []);
+        setMeta(data?.meta || null);
       } catch (e) {
-        const msg = e?.response?.data?.message || e?.message || "Fetch failed";
+        if (!alive) return;
+        const msg =
+          e?.response?.data?.message || e?.message || "Gagal memuat kendaraan";
         setErr(msg);
       } finally {
-        setLoading(false);
+        if (alive) setLoading(false);
       }
     })();
-  }, []);
+    return () => {
+      alive = false;
+    };
+  }, [params]);
 
-  // unique city options (from Branch.city)
-  const cityOptions = useMemo(() => {
-    const set = new Set(
-      (vehicles || []).map((v) => v?.Branch?.city).filter(Boolean)
-    );
-    return ["ALL", ...Array.from(set).sort()];
-  }, [vehicles]);
-
-  // filtered list
-  const filtered = useMemo(() => {
-    const term = q.trim().toLowerCase();
-    return (vehicles || []).filter((v) => {
-      const okCity = city === "ALL" ? true : v?.Branch?.city === city;
-      if (!okCity) return false;
-
-      if (!term) return true;
-      const hay = `${v?.name || ""} ${v?.brand || ""} ${v?.type || ""} ${
-        v?.Branch?.name || ""
-      } ${v?.Branch?.city || ""}`.toLowerCase();
-      return hay.includes(term);
-    });
-  }, [vehicles, q, city]);
-
-  // pagination data
-  const totalItems = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / perPage));
-  const currentPage = Math.min(page, totalPages);
-
-  const paged = useMemo(() => {
-    const start = (currentPage - 1) * perPage;
-    return filtered.slice(start, start + perPage);
-  }, [filtered, currentPage, perPage]);
-
-  // reset ke halaman 1 saat filter berubah
+  // reset page saat filter berubah (kecuali page itu sendiri)
   useEffect(() => {
     setPage(1);
-  }, [q, city, perPage]);
+  }, [q, city, min, max, sort, order, limit]);
 
-  // ui helpers
+  const totalPages = meta?.totalPages ?? 1;
+  const totalItems = meta?.total ?? items.length;
+
   const go = (p) => setPage(Math.min(Math.max(1, p), totalPages));
 
   if (loading) return <p className="text-center my-5">Loading vehicles...</p>;
@@ -86,11 +88,13 @@ export default function HomePage() {
         <div>
           <h1 className="h4 mb-1">Daftar Mobil</h1>
           <small className="text-muted">
-            {totalItems} hasil {q || city !== "ALL" ? "(terfilter)" : ""}
+            {totalItems} hasil{" "}
+            {q || city !== "ALL" || min || max ? "(terfilter)" : ""}
           </small>
         </div>
 
         <div className="ms-auto d-flex flex-wrap gap-2">
+          {/* search */}
           <div className="input-group" style={{ minWidth: 260 }}>
             <span className="input-group-text" id="search-addon">
               🔎
@@ -98,7 +102,7 @@ export default function HomePage() {
             <input
               type="text"
               className="form-control"
-              placeholder="Cari nama/brand/lokasi…"
+              placeholder="Cari nama/brand/type/plat…"
               aria-label="search"
               aria-describedby="search-addon"
               value={q}
@@ -106,6 +110,7 @@ export default function HomePage() {
             />
           </div>
 
+          {/* city */}
           <select
             className="form-select"
             style={{ minWidth: 160 }}
@@ -113,21 +118,66 @@ export default function HomePage() {
             onChange={(e) => setCity(e.target.value)}
             aria-label="Filter kota"
           >
-            {cityOptions.map((c) => (
+            {CITY_OPTIONS.map((c) => (
               <option key={c} value={c}>
                 {c === "ALL" ? "Semua Kota" : c}
               </option>
             ))}
           </select>
 
+          {/* price range */}
+          <div className="input-group" style={{ width: 240 }}>
+            <span className="input-group-text">Min</span>
+            <input
+              type="number"
+              className="form-control"
+              min={0}
+              placeholder="0"
+              value={min}
+              onChange={(e) => setMin(e.target.value)}
+            />
+            <span className="input-group-text">Max</span>
+            <input
+              type="number"
+              className="form-control"
+              min={0}
+              placeholder="9999999"
+              value={max}
+              onChange={(e) => setMax(e.target.value)}
+            />
+          </div>
+
+          {/* sort */}
+          <select
+            className="form-select"
+            style={{ width: 170 }}
+            value={`${sort}:${order}`}
+            onChange={(e) => {
+              const [s, o] = e.target.value.split(":");
+              setSort(s);
+              setOrder(o);
+            }}
+            aria-label="Urutkan"
+          >
+            <option value="createdAt:DESC">Terbaru</option>
+            <option value="createdAt:ASC">Terlama</option>
+            <option value="dailyPrice:ASC">Harga termurah</option>
+            <option value="dailyPrice:DESC">Harga termahal</option>
+            <option value="year:DESC">Tahun terbaru</option>
+            <option value="year:ASC">Tahun terlama</option>
+            <option value="name:ASC">Nama A-Z</option>
+            <option value="name:DESC">Nama Z-A</option>
+          </select>
+
+          {/* per page */}
           <select
             className="form-select"
             style={{ width: 120 }}
-            value={perPage}
-            onChange={(e) => setPerPage(Number(e.target.value))}
+            value={limit}
+            onChange={(e) => setLimit(Number(e.target.value))}
             aria-label="Per halaman"
           >
-            {[6, 9, 12, 18].map((n) => (
+            {[6, 9, 12, 18, 24].map((n) => (
               <option key={n} value={n}>
                 {n}/page
               </option>
@@ -138,12 +188,12 @@ export default function HomePage() {
 
       {totalItems === 0 ? (
         <div className="alert alert-warning">
-          Tidak ada data yang cocok. Coba ubah kata kunci atau filter kota.
+          Tidak ada data yang cocok. Coba ubah kata kunci atau filter.
         </div>
       ) : (
         <>
           <div className="row row-cols-1 row-cols-md-3 g-4">
-            {paged.map((v) => (
+            {items.map((v) => (
               <div className="col" key={v.id}>
                 <div className="card h-100 shadow-sm">
                   {v.imgUrl ? (
@@ -187,37 +237,25 @@ export default function HomePage() {
           {/* Pagination */}
           <nav className="mt-4">
             <ul className="pagination justify-content-center">
-              <li
-                className={`page-item ${currentPage === 1 ? "disabled" : ""}`}
-              >
-                <button
-                  className="page-link"
-                  onClick={() => go(currentPage - 1)}
-                >
+              <li className={`page-item ${page === 1 ? "disabled" : ""}`}>
+                <button className="page-link" onClick={() => go(page - 1)}>
                   Previous
                 </button>
               </li>
-
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
                 <li
                   key={p}
-                  className={`page-item ${p === currentPage ? "active" : ""}`}
+                  className={`page-item ${p === page ? "active" : ""}`}
                 >
                   <button className="page-link" onClick={() => go(p)}>
                     {p}
                   </button>
                 </li>
               ))}
-
               <li
-                className={`page-item ${
-                  currentPage === totalPages ? "disabled" : ""
-                }`}
+                className={`page-item ${page === totalPages ? "disabled" : ""}`}
               >
-                <button
-                  className="page-link"
-                  onClick={() => go(currentPage + 1)}
-                >
+                <button className="page-link" onClick={() => go(page + 1)}>
                   Next
                 </button>
               </li>
