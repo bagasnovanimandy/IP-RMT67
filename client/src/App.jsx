@@ -1,25 +1,27 @@
-import { Routes, Route, Navigate } from "react-router";
-import Navbar from "./components/Navbar";
-import HomePage from "./pages/Home.page";
-import LoginPage from "./pages/Login.page";
-import RegisterPage from "./pages/Register.page";
-import VehicleDetailPage from "./pages/VehicleDetail.page";
-import MyBookingsPage from "./pages/MyBookings.page"; // <-- tambah ini
+import { Routes, Route } from "react-router";
+import HomePage from "./pages/Home.page.jsx";
+import LoginPage from "./pages/Login.page.jsx";
+import RegisterPage from "./pages/Register.page.jsx";
+import VehicleDetailPage from "./pages/VehicleDetail.page.jsx";
+import MyBookingsPage from "./pages/MyBookings.page.jsx";
+import RecommendationsPage from "./pages/Recommendations.page.jsx";
 
 export default function App() {
   return (
-    <>
-      <Navbar />
-      <div className="container py-4">
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/vehicles/:id" element={<VehicleDetailPage />} />
-          <Route path="/mybookings" element={<MyBookingsPage />} /> {/* baru */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </div>
-    </>
+    <div className="container py-4">
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/vehicles/:id" element={<VehicleDetailPage />} />
+        <Route path="/mybookings" element={<MyBookingsPage />} />
+        {/* Halaman baru untuk hasil AI */}
+        <Route path="/recommendations" element={<RecommendationsPage />} />
+        <Route
+          path="*"
+          element={<p className="text-center my-5">Not Found</p>}
+        />
+      </Routes>
+    </div>
   );
 }

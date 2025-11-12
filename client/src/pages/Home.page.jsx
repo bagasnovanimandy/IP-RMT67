@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { serverApi } from "../helpers/serverApi";
 
 function rupiah(n) {
@@ -10,10 +10,12 @@ function rupiah(n) {
   }
 }
 
-const CITY_OPTIONS = ["ALL", "Jakarta", "Bandung"]; // dari seed saat ini
+const CITY_OPTIONS = ["ALL", "Jakarta", "Bandung"]; // sesuai seed
 
 export default function HomePage() {
-  // query state
+  const navigate = useNavigate();
+
+  // ==== STATE: Query Vehicles (server-side) ====
   const [q, setQ] = useState("");
   const [city, setCity] = useState("ALL");
   const [min, setMin] = useState("");
@@ -23,13 +25,11 @@ export default function HomePage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(9);
 
-  // data state
   const [items, setItems] = useState([]);
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
-  // compose params (city=ALL -> kosong)
   const params = useMemo(() => {
     const p = {
       q: q || undefined,
@@ -44,7 +44,6 @@ export default function HomePage() {
     return p;
   }, [q, city, min, max, sort, order, page, limit]);
 
-  // fetch server-side
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -69,21 +68,67 @@ export default function HomePage() {
     };
   }, [params]);
 
-  // reset page saat filter berubah (kecuali page itu sendiri)
   useEffect(() => {
     setPage(1);
   }, [q, city, min, max, sort, order, limit]);
 
   const totalPages = meta?.totalPages ?? 1;
   const totalItems = meta?.total ?? items.length;
-
   const go = (p) => setPage(Math.min(Math.max(1, p), totalPages));
 
-  if (loading) return <p className="text-center my-5">Loading vehicles...</p>;
-  if (err) return <div className="alert alert-danger">{err}</div>;
+  // ==== STATE: Kotak AI Generative (placeholder Gemini) ====
+  const [aiPrompt, setAiPrompt] = useState("");
+
+  function handleAskAI(e) {
+    e.preventDefault();
+    const query = aiPrompt.trim();
+    if (!query) return;
+    // Untuk sekarang kita kirim via querystring; nanti endpoint Gemini bisa dipanggil dari halaman rekomendasi.
+    navigate(`/recommendations?query=${encodeURIComponent(query)}`);
+  }
 
   return (
     <>
+      {/* ====== Hero / AI Box ====== */}
+      <div className="card border-0 shadow-sm mb-4">
+        <div className="card-body">
+          <h2 className="h5 mb-2">AI Rekomendasi Perjalanan (Gemini)</h2>
+          <p className="text-muted mb-3">
+            Sampaikan keperluan travellingmu di sini (misal: “keluarga 6 orang,
+            3 hari di Bandung, butuh bagasi besar, budget 400–600 ribu/hari”).
+          </p>
+
+          <form onSubmit={handleAskAI}>
+            <div className="mb-3">
+              <textarea
+                className="form-control"
+                rows="3"
+                placeholder="Tulis kebutuhan perjalananmu..."
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+              />
+            </div>
+            <div className="d-flex gap-2">
+              <button type="submit" className="btn btn-dark">
+                Dapatkan Rekomendasi
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline-secondary"
+                onClick={() => setAiPrompt("")}
+              >
+                Reset
+              </button>
+            </div>
+            <small className="text-muted d-block mt-2">
+              *Fitur AI menggunakan Gemini — segera aktif. Untuk sekarang akan
+              menuju halaman rekomendasi dengan hasil placeholder.
+            </small>
+          </form>
+        </div>
+      </div>
+
+      {/* ====== Toolbar Filter/List ====== */}
       <div className="d-flex flex-wrap align-items-end gap-3 mb-4">
         <div>
           <h1 className="h4 mb-1">Daftar Mobil</h1>
@@ -94,7 +139,6 @@ export default function HomePage() {
         </div>
 
         <div className="ms-auto d-flex flex-wrap gap-2">
-          {/* search */}
           <div className="input-group" style={{ minWidth: 260 }}>
             <span className="input-group-text" id="search-addon">
               🔎
@@ -110,7 +154,6 @@ export default function HomePage() {
             />
           </div>
 
-          {/* city */}
           <select
             className="form-select"
             style={{ minWidth: 160 }}
@@ -125,7 +168,6 @@ export default function HomePage() {
             ))}
           </select>
 
-          {/* price range */}
           <div className="input-group" style={{ width: 240 }}>
             <span className="input-group-text">Min</span>
             <input
@@ -147,7 +189,6 @@ export default function HomePage() {
             />
           </div>
 
-          {/* sort */}
           <select
             className="form-select"
             style={{ width: 170 }}
@@ -169,7 +210,6 @@ export default function HomePage() {
             <option value="name:DESC">Nama Z-A</option>
           </select>
 
-          {/* per page */}
           <select
             className="form-select"
             style={{ width: 120 }}
@@ -186,7 +226,12 @@ export default function HomePage() {
         </div>
       </div>
 
-      {totalItems === 0 ? (
+      {/* ====== List Kendaraan ====== */}
+      {loading ? (
+        <p className="text-center my-5">Loading vehicles...</p>
+      ) : err ? (
+        <div className="alert alert-danger">{err}</div>
+      ) : totalItems === 0 ? (
         <div className="alert alert-warning">
           Tidak ada data yang cocok. Coba ubah kata kunci atau filter.
         </div>
