@@ -80,6 +80,33 @@ class AdminVehicleController {
       next(err);
     }
   }
+  // PATCH /api/admin/vehicles/:id/image  (form-data: image=<file>)
+  static async uploadImage(req, res, next) {
+    try {
+      const { id } = req.params;
+      const v = await Vehicle.findByPk(id);
+      if (!v) return res.status(404).json({ message: "Vehicle not found" });
+      if (!req.file)
+        return res.status(400).json({ message: "No image uploaded" });
+
+      const publicId = `vehicle_${id}`;
+      const result = await uploadBuffer(req.file.buffer, {
+        folder: "galindo-vehicles",
+        public_id: publicId,
+      });
+
+      v.imgUrl = result.secure_url;
+      await v.save();
+
+      res.status(200).json({
+        message: "Image uploaded",
+        imgUrl: v.imgUrl,
+        publicId: result.public_id,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = AdminVehicleController;
