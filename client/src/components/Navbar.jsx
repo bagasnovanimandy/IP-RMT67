@@ -6,7 +6,6 @@ export default function Navbar() {
   const location = useLocation();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // Cek token setiap route berubah
   useEffect(() => {
     setIsLoggedIn(!!localStorage.getItem("gcr_token"));
   }, [location.pathname]);
@@ -44,6 +43,13 @@ export default function Navbar() {
                 Home
               </Link>
             </li>
+            {isLoggedIn && (
+              <li className="nav-item">
+                <Link className="nav-link" to="/mybookings">
+                  My Bookings
+                </Link>
+              </li>
+            )}
           </ul>
 
           <div className="d-flex">
