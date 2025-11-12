@@ -54,16 +54,33 @@ export default function MyBookingsPage() {
     })();
   }, [isLoggedIn, navigate]);
 
+  async function reload() {
+    const { data } = await serverApi.get("/bookings/me");
+    setBookings(data);
+  }
+
   async function handleCancel(id) {
     const ok = window.confirm("Batalkan booking ini?");
     if (!ok) return;
     try {
       await serverApi.patch(`/bookings/${id}/cancel`);
-      const { data } = await serverApi.get("/bookings/me");
-      setBookings(data);
+      await reload();
     } catch (e) {
       alert(
         e?.response?.data?.message || e?.message || "Gagal membatalkan booking"
+      );
+    }
+  }
+
+  async function handleDelete(id) {
+    const ok = window.confirm("Hapus booking ini secara permanen?");
+    if (!ok) return;
+    try {
+      await serverApi.delete(`/bookings/${id}`);
+      await reload();
+    } catch (e) {
+      alert(
+        e?.response?.data?.message || e?.message || "Gagal menghapus booking"
       );
     }
   }
@@ -98,7 +115,7 @@ export default function MyBookingsPage() {
                 <th className="text-center">Days</th>
                 <th className="text-end">Price</th>
                 <th className="text-center">Status</th>
-                <th style={{ width: 140 }} className="text-center">
+                <th style={{ width: 180 }} className="text-center">
                   Actions
                 </th>
               </tr>
@@ -172,6 +189,13 @@ export default function MyBookingsPage() {
                           }
                         >
                           Cancel
+                        </button>
+                        <button
+                          className="btn btn-sm btn-outline-secondary"
+                          onClick={() => handleDelete(b.id)}
+                          title="Hapus booking"
+                        >
+                          Delete
                         </button>
                       </div>
                     </td>
