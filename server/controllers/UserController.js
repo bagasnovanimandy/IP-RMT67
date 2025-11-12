@@ -131,6 +131,19 @@ class UserController {
           pictureUrl: payload?.picture || null,
           role: "customer",
         });
+      } else {
+        // Update pictureUrl dari Google jika ada (selalu update untuk memastikan foto terbaru)
+        if (payload?.picture) {
+          user.pictureUrl = payload.picture;
+        }
+        // Update name jika belum ada atau kosong
+        if (!user.name && name) {
+          user.name = name;
+        }
+        // Save jika ada perubahan
+        if (payload?.picture || (!user.name && name)) {
+          await user.save();
+        }
       }
 
       const access_token = signToken({ id: user.id });

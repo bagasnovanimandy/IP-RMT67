@@ -1,8 +1,6 @@
 // middleware/authentication.js
-const jwt = require("jsonwebtoken");
 const { User } = require("../models");
-
-const SECRET = process.env.JWT_SECRET || "secret-galindo";
+const { verifyToken } = require("../helpers/jwt");
 
 module.exports = async function authentication(req, res, next) {
   try {
@@ -10,9 +8,9 @@ module.exports = async function authentication(req, res, next) {
     const [, token] = auth.split(" ");
     if (!token) return res.status(401).json({ message: "Unauthorized" });
 
-    const payload = jwt.verify(token, SECRET);
+    const payload = verifyToken(token);
     const user = await User.findByPk(payload.id, {
-      attributes: ["id", "email", "role", "fullName"],
+      attributes: ["id", "email", "role", "name"],
     });
     if (!user) return res.status(401).json({ message: "Unauthorized" });
 
@@ -20,10 +18,13 @@ module.exports = async function authentication(req, res, next) {
       id: user.id,
       email: user.email,
       role: user.role,
-      fullName: user.fullName,
+      name: user.name,
     };
     next();
   } catch (err) {
+    if (err.name === "JsonWebTokenError" || err.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "Invalid token or token expired" });
+    }
     next(err);
   }
 };

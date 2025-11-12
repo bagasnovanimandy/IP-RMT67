@@ -14,6 +14,7 @@ const router = express.Router();
 /** PUBLIC */
 router.post("/register", UserController.register);
 router.post("/login", UserController.login);
+router.post("/google-login", UserController.googleLogin);
 router.get("/vehicles", VehicleController.list);
 router.get("/vehicles/:id", VehicleController.detail);
 

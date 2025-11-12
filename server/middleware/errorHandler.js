@@ -2,7 +2,13 @@ function parseSequelize(err) {
   if (err?.name?.includes("Sequelize")) {
     const messages = [];
     if (Array.isArray(err.errors)) {
-      for (const e of err.errors) messages.push(e.message);
+      for (const e of err.errors) {
+        messages.push(e.message || `${e.path}: ${e.type}`);
+      }
+    }
+    // Jika tidak ada error detail, cek error message utama
+    if (messages.length === 0 && err.message) {
+      messages.push(err.message);
     }
     return messages.join(", ") || "Invalid data";
   }

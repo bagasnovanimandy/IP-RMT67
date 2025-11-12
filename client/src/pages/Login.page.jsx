@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router";
+import { GoogleLogin } from "@react-oauth/google";
 import { serverApi } from "../helpers/serverApi";
 import { alert } from "../lib/alert";
 
@@ -19,9 +20,18 @@ export default function LoginPage() {
       if (!token) throw new Error("Token not found");
       localStorage.setItem("gjt_token", token);
       localStorage.setItem("gcr_token", token);
-      if (user) localStorage.setItem("gcr_user", JSON.stringify(user));
+      if (user) {
+        console.log("Login - User data:", user);
+        console.log("Login - User role:", user.role);
+        localStorage.setItem("gcr_user", JSON.stringify(user));
+      }
       await alert.success("Login successful");
-      navigate("/");
+      // Redirect based on role
+      if (user?.role === "admin") {
+        navigate("/dashboard");
+      } else {
+        navigate("/");
+      }
     } catch (error) {
       await alert.error(error.message);
     } finally {
@@ -29,8 +39,39 @@ export default function LoginPage() {
     }
   }
 
-  async function handleGoogleLogin() {
-    await alert.info("Google Login will be available after integration.");
+  async function handleGoogleLoginSuccess(credentialResponse) {
+    try {
+      setLoading(true);
+      const { data } = await serverApi.post("/google-login", {
+        id_token: credentialResponse.credential,
+      });
+      const token = data?.access_token;
+      const user = data?.user;
+      if (!token) throw new Error("Token not found");
+      localStorage.setItem("gjt_token", token);
+      localStorage.setItem("gcr_token", token);
+      if (user) {
+        console.log("Google Login - User data:", user);
+        console.log("📸 Picture URL:", user.pictureUrl || "Tidak ada");
+        localStorage.setItem("gcr_user", JSON.stringify(user));
+      }
+      await alert.success("Login dengan Google berhasil");
+      // Redirect based on role
+      if (user?.role === "admin") {
+        navigate("/dashboard");
+      } else {
+        navigate("/");
+      }
+    } catch (error) {
+      console.error("Google login error:", error);
+      await alert.error(error.message || "Google login gagal");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleGoogleLoginError() {
+    alert.error("Google login gagal. Silakan coba lagi.");
   }
 
   return (
@@ -72,16 +113,20 @@ export default function LoginPage() {
             </form>
 
             <div className="text-center my-3">
-              <span className="text-muted">or</span>
+              <span className="text-muted">atau</span>
             </div>
 
-            <button
-              type="button"
-              className="btn btn-outline-danger w-100"
-              onClick={handleGoogleLogin}
-            >
-              Continue with Google
-            </button>
+            <div className="d-flex justify-content-center">
+              <GoogleLogin
+                onSuccess={handleGoogleLoginSuccess}
+                onError={handleGoogleLoginError}
+                width="360"
+                text="continue_with"
+                shape="rectangular"
+                theme="outline"
+                size="large"
+              />
+            </div>
 
             <p className="mt-3 mb-0">
               Belum punya akun? <Link to="/register">Register</Link>

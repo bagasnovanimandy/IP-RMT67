@@ -1,3 +1,4 @@
 module.exports = {
-  GOOGLE_CLIENT_ID: "PASTE_CLIENT_ID_APLIKASIMU.apps.googleusercontent.com", //! ganti ini
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
 };

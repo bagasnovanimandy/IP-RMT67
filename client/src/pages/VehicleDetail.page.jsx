@@ -56,20 +56,67 @@ export default function VehicleDetailPage() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!isLoggedIn) return navigate("/login");
-    if (!startDate || !endDate || days < 1)
-      return alert.error("Tanggal tidak valid (min 1 hari)");
+    
+    // Cek login status terlebih dahulu
+    if (!isLoggedIn) {
+      const result = await alert.confirm({
+        title: "🔐 Login Diperlukan",
+        text: "Anda harus login terlebih dahulu untuk melakukan booking. Apakah Anda ingin login sekarang?",
+        confirmText: "Ya, Login",
+        cancelText: "Batal",
+        icon: "warning",
+      });
+      if (result.isConfirmed) {
+        navigate("/login");
+      }
+      return;
+    }
+    
+    // Validasi tanggal
+    if (!startDate || !endDate) {
+      return alert.error("Silakan pilih tanggal mulai dan tanggal selesai terlebih dahulu");
+    }
+    
+    if (days < 1) {
+      return alert.error("Tanggal tidak valid. Tanggal selesai harus setelah tanggal mulai (min 1 hari)");
+    }
 
     try {
-      await serverApi.post("/bookings", {
-        VehicleId: Number(id),
-        startDate,
-        endDate,
-      });
+      // Pastikan format data benar
+      const vehicleId = Number(id);
+      if (isNaN(vehicleId) || vehicleId <= 0) {
+        return alert.error("ID kendaraan tidak valid");
+      }
+
+      // Pastikan tanggal dalam format ISO string
+      const startDateISO = new Date(startDate).toISOString();
+      const endDateISO = new Date(endDate).toISOString();
+
+      // Validasi tanggal tidak boleh di masa lalu
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const startDateObj = new Date(startDate);
+      startDateObj.setHours(0, 0, 0, 0);
+      
+      if (startDateObj < today) {
+        return alert.error("Tanggal mulai tidak boleh di masa lalu");
+      }
+
+      const bookingData = {
+        VehicleId: vehicleId,
+        startDate: startDateISO,
+        endDate: endDateISO,
+      };
+
+      console.log("Sending booking data:", bookingData);
+
+      await serverApi.post("/bookings", bookingData);
       await alert.success("Booking berhasil dibuat");
-      // navigate("/mybookings"); // opsional
+      navigate("/mybookings");
     } catch (error) {
-      await alert.error(error.message);
+      console.error("Booking error:", error);
+      const errorMessage = error?.response?.data?.message || error?.message || "Gagal membuat booking";
+      await alert.error(errorMessage);
     }
   }
 
@@ -151,12 +198,6 @@ export default function VehicleDetailPage() {
             <div className="card-body">
               <h3 className="h6 mb-3">Booking</h3>
 
-              {!isLoggedIn && (
-                <div className="alert alert-warning py-2">
-                  Kamu belum login. <Link to="/login">Login dulu</Link> untuk
-                  melakukan booking.
-                </div>
-              )}
 
               <form onSubmit={handleSubmit}>
                 <div className="row g-3">
@@ -198,7 +239,6 @@ export default function VehicleDetailPage() {
                   <button
                     className="btn btn-primary"
                     type="submit"
-                    disabled={!isLoggedIn}
                   >
                     Book Now
                   </button>

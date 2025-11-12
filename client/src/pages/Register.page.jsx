@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router";
 import { serverApi } from "../helpers/serverApi";
+import { alert } from "../lib/alert";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -10,14 +11,11 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
-
-  const [err, setErr] = useState("");
-  const [ok, setOk] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setErr("");
-    setOk("");
+    setLoading(true);
 
     try {
       await serverApi.post("/register", {
@@ -26,12 +24,14 @@ export default function RegisterPage() {
         password,
         phoneNumber,
       });
-      setOk("Register berhasil. Mengarahkan ke halaman login...");
-      setTimeout(() => navigate("/login"), 900);
+      await alert.success("Registrasi berhasil! Mengarahkan ke halaman login...");
+      navigate("/login");
     } catch (error) {
       const msg =
-        error?.response?.data?.message || error?.message || "Register gagal";
-      setErr(msg);
+        error?.response?.data?.message || error?.message || "Registrasi gagal";
+      await alert.error(msg);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -41,9 +41,6 @@ export default function RegisterPage() {
         <div className="card shadow-sm">
           <div className="card-body">
             <h1 className="h4 mb-3">Register</h1>
-
-            {err ? <div className="alert alert-danger">{err}</div> : null}
-            {ok ? <div className="alert alert-success">{ok}</div> : null}
 
             <form onSubmit={handleSubmit}>
               <div className="mb-3">
@@ -91,7 +88,9 @@ export default function RegisterPage() {
                 />
               </div>
 
-              <button className="btn btn-warning w-100">Create Account</button>
+              <button className="btn btn-warning w-100" disabled={loading}>
+                {loading ? "Mendaftar..." : "Create Account"}
+              </button>
             </form>
 
             <p className="mt-3 mb-0">

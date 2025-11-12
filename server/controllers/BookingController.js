@@ -7,18 +7,32 @@ class BookingController {
       const { VehicleId, startDate, endDate } = req.body;
       const { id: UserId } = req.user;
 
+      // Validasi input
       if (!VehicleId || !startDate || !endDate) {
         return res
           .status(400)
           .json({ message: "VehicleId, startDate, endDate wajib diisi" });
       }
 
-      const vehicle = await Vehicle.findByPk(VehicleId);
+      // Pastikan VehicleId adalah number
+      const vehicleId = parseInt(VehicleId, 10);
+      if (isNaN(vehicleId) || vehicleId <= 0) {
+        return res.status(400).json({ message: "VehicleId tidak valid" });
+      }
+
+      // Validasi format tanggal
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        return res.status(400).json({ message: "Format tanggal tidak valid" });
+      }
+
+      const vehicle = await Vehicle.findByPk(vehicleId);
       if (!vehicle)
         return res.status(404).json({ message: "Vehicle not found" });
 
-      const days =
-        (new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24);
+      const days = (end - start) / (1000 * 60 * 60 * 24);
       if (days < 1)
         return res.status(400).json({ message: "Durasi minimal 1 hari" });
 
@@ -26,9 +40,9 @@ class BookingController {
 
       const booking = await Booking.create({
         UserId,
-        VehicleId,
-        startDate,
-        endDate,
+        VehicleId: vehicleId,
+        startDate: start,
+        endDate: end,
         totalPrice,
         status: "PENDING",
       });
