@@ -9,21 +9,18 @@ function rupiah(n) {
     return n;
   }
 }
-
 function toDateStr(d) {
   try {
     const dt = new Date(d);
-    if (isNaN(dt)) return d;
-    return dt.toISOString().slice(0, 10); // YYYY-MM-DD
+    return isNaN(dt) ? d : dt.toISOString().slice(0, 10);
   } catch {
     return d;
   }
 }
-
 function diffDays(a, b) {
   try {
-    const s = new Date(a);
-    const e = new Date(b);
+    const s = new Date(a),
+      e = new Date(b);
     const diff = (e - s) / (1000 * 60 * 60 * 24);
     return diff > 0 ? Math.round(diff) : 0;
   } catch {
@@ -48,14 +45,28 @@ export default function MyBookingsPage() {
         const { data } = await serverApi.get("/bookings/me");
         setBookings(data);
       } catch (e) {
-        const msg =
-          e?.response?.data?.message || e?.message || "Gagal memuat bookings";
-        setErr(msg);
+        setErr(
+          e?.response?.data?.message || e?.message || "Gagal memuat bookings"
+        );
       } finally {
         setLoading(false);
       }
     })();
   }, [isLoggedIn, navigate]);
+
+  async function handleCancel(id) {
+    const ok = window.confirm("Batalkan booking ini?");
+    if (!ok) return;
+    try {
+      await serverApi.patch(`/bookings/${id}/cancel`);
+      const { data } = await serverApi.get("/bookings/me");
+      setBookings(data);
+    } catch (e) {
+      alert(
+        e?.response?.data?.message || e?.message || "Gagal membatalkan booking"
+      );
+    }
+  }
 
   if (!isLoggedIn) return null;
   if (loading) return <p className="text-center my-5">Loading bookings...</p>;
@@ -95,6 +106,16 @@ export default function MyBookingsPage() {
             <tbody>
               {bookings.map((b) => {
                 const days = diffDays(b.startDate, b.endDate);
+                const badgeClass =
+                  b.status === "PENDING"
+                    ? "text-bg-secondary"
+                    : b.status === "CONFIRMED"
+                    ? "text-bg-primary"
+                    : b.status === "COMPLETED"
+                    ? "text-bg-success"
+                    : b.status === "REJECTED"
+                    ? "text-bg-warning"
+                    : "text-bg-danger";
                 return (
                   <tr key={b.id}>
                     <td>{b.id}</td>
@@ -130,9 +151,7 @@ export default function MyBookingsPage() {
                     <td className="text-center">{days}</td>
                     <td className="text-end">Rp {rupiah(b.totalPrice)}</td>
                     <td className="text-center">
-                      <span className="badge text-bg-secondary">
-                        {b.status}
-                      </span>
+                      <span className={`badge ${badgeClass}`}>{b.status}</span>
                     </td>
                     <td className="text-center">
                       <div className="btn-group">
@@ -144,7 +163,13 @@ export default function MyBookingsPage() {
                         </button>
                         <button
                           className="btn btn-sm btn-outline-danger"
-                          disabled
+                          onClick={() => handleCancel(b.id)}
+                          disabled={b.status !== "PENDING"}
+                          title={
+                            b.status !== "PENDING"
+                              ? "Hanya PENDING bisa dibatalkan"
+                              : "Batalkan booking"
+                          }
                         >
                           Cancel
                         </button>
