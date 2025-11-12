@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router";
 import { serverApi } from "../helpers/serverApi";
 
@@ -13,10 +13,20 @@ function rupiah(n) {
 export default function VehicleDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+
   const [vehicle, setVehicle] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
+  // Booking form state
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [submitErr, setSubmitErr] = useState("");
+  const [submitOk, setSubmitOk] = useState("");
+
+  const isLoggedIn = useMemo(() => !!localStorage.getItem("gcr_token"), []);
+
+  // Fetch detail kendaraan
   useEffect(() => {
     (async () => {
       try {
@@ -30,6 +40,59 @@ export default function VehicleDetailPage() {
       }
     })();
   }, [id]);
+
+  // Hitung durasi (hari) dan total harga
+  const days = useMemo(() => {
+    if (!startDate || !endDate) return 0;
+    const s = new Date(startDate);
+    const e = new Date(endDate);
+    const diff = (e - s) / (1000 * 60 * 60 * 24);
+    return diff > 0 ? Math.round(diff) : 0;
+  }, [startDate, endDate]);
+
+  const totalPrice = useMemo(() => {
+    if (!vehicle || !days) return 0;
+    return days * (vehicle.dailyPrice ?? 0);
+  }, [vehicle, days]);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setSubmitErr("");
+    setSubmitOk("");
+
+    // Cek login
+    if (!isLoggedIn) {
+      return navigate("/login");
+    }
+
+    // Validasi form
+    if (!startDate || !endDate) {
+      return setSubmitErr("Tanggal mulai dan selesai wajib diisi.");
+    }
+    if (days < 1) {
+      return setSubmitErr("Durasi minimal 1 hari.");
+    }
+
+    try {
+      await serverApi.post("/bookings", {
+        VehicleId: Number(id),
+        startDate,
+        endDate,
+      });
+
+      setSubmitOk(
+        "Booking berhasil dibuat. Cek halaman riwayat booking nanti."
+      );
+      // Reset form ringan
+      // setStartDate(""); setEndDate("");
+    } catch (error) {
+      const msg =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Gagal membuat booking";
+      setSubmitErr(msg);
+    }
+  }
 
   if (loading) return <p className="text-center my-5">Loading detail...</p>;
   if (err) return <div className="alert alert-danger">{err}</div>;
@@ -61,13 +124,11 @@ export default function VehicleDetailPage() {
               <span className="text-muted">No image</span>
             </div>
           )}
-        </div>
 
-        <div className="col-md-6">
-          <div className="card shadow-sm">
+          <div className="card shadow-sm mt-3">
             <div className="card-body">
-              <h3 className="h5 mb-3">Spesifikasi</h3>
-              <ul className="list-unstyled mb-3">
+              <h3 className="h6 mb-3">Spesifikasi</h3>
+              <ul className="list-unstyled mb-0">
                 <li>
                   <strong>Harga:</strong> Rp {rupiah(vehicle.dailyPrice)} / hari
                 </li>
@@ -99,19 +160,85 @@ export default function VehicleDetailPage() {
                   </li>
                 ) : null}
               </ul>
-
+              <hr />
               <h4 className="h6">Deskripsi</h4>
               <p className="mb-0">{vehicle.description || "-"}</p>
             </div>
           </div>
+        </div>
 
-          <div className="d-flex gap-2 mt-3">
-            <Link to="/" className="btn btn-outline-secondary">
-              Kembali
-            </Link>
-            <button className="btn btn-primary" disabled>
-              Book Now (next step)
-            </button>
+        <div className="col-md-6">
+          <div className="card shadow-sm">
+            <div className="card-body">
+              <h3 className="h6 mb-3">Booking</h3>
+
+              {!isLoggedIn && (
+                <div className="alert alert-warning py-2">
+                  Kamu belum login. <Link to="/login">Login dulu</Link> untuk
+                  melakukan booking.
+                </div>
+              )}
+
+              {submitErr && (
+                <div className="alert alert-danger">{submitErr}</div>
+              )}
+              {submitOk && (
+                <div className="alert alert-success">{submitOk}</div>
+              )}
+
+              <form onSubmit={handleSubmit}>
+                <div className="row g-3">
+                  <div className="col-md-6">
+                    <label className="form-label">Tanggal Mulai</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label">Tanggal Selesai</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <p className="mb-1">
+                    <strong>Durasi:</strong> {days} hari
+                  </p>
+                  <p className="mb-0">
+                    <strong>Total:</strong> Rp {rupiah(totalPrice)}
+                  </p>
+                </div>
+
+                <div className="d-flex gap-2 mt-3">
+                  <Link to="/" className="btn btn-outline-secondary">
+                    Kembali
+                  </Link>
+                  <button
+                    className="btn btn-primary"
+                    type="submit"
+                    disabled={!isLoggedIn}
+                  >
+                    Book Now
+                  </button>
+                </div>
+              </form>
+
+              <hr className="my-4" />
+              <small className="text-muted">
+                *Harga total dihitung otomatis dari selisih hari × harga per
+                hari.
+              </small>
+            </div>
           </div>
         </div>
       </div>
