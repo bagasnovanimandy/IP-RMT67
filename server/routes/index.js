@@ -1,14 +1,21 @@
 const express = require("express");
 const VehicleController = require("../controllers/VehicleController");
+const UserController = require("../controllers/UserController");
+//! const authentication = require("../middleware/authentication"); // nanti dipakai
 
 const router = express.Router();
 
-//! Public routes
-router.get("/vehicles", VehicleController.list); // GET /api/vehicles
-router.get("/vehicles/:id", VehicleController.detail); // GET /api/vehicles/:id
+//! Auth routes
+router.post("/register", UserController.register);
+router.post("/login", UserController.login);
+//! router.post("/google-login", UserController.googleLogin); // nanti
 
-//! Placeholder routes lain (auth, booking, dll) nanti di sini
-// router.post("/register", UserController.register);
-// router.post("/login", UserController.login);
+//! Public Vehicle routes
+router.get("/vehicles", VehicleController.list);
+router.get("/vehicles/:id", VehicleController.detail);
+
+//! Protected routes (nanti): pakai authentication
+// router.use(authentication);
+// router.get("/bookings/me", BookingController.getMyBookings);
 
 module.exports = router;

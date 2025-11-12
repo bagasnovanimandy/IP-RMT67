@@ -1,9 +1,13 @@
 "use strict";
 const { Model } = require("sequelize");
+const { hashPassword } = require("../helpers/bcrypt"); //! import helper
 
 module.exports = (sequelize, DataTypes) => {
   class User extends Model {
-    static associate(models) {}
+    static associate(models) {
+      //! Nanti: User.hasMany(models.Booking)
+      //! Nanti: User.hasMany(models.AiLog)
+    }
   }
 
   User.init(
@@ -31,7 +35,7 @@ module.exports = (sequelize, DataTypes) => {
           notEmpty: { msg: "Password is required" },
           len: {
             args: [5],
-            msg: "Password min. 5 characters",
+            msg: "Password minimum 5 characters",
           },
         },
       },
@@ -51,6 +55,17 @@ module.exports = (sequelize, DataTypes) => {
       sequelize,
       modelName: "User",
       tableName: "Users",
+      hooks: {
+        beforeCreate(user) {
+          user.password = hashPassword(user.password);
+        },
+
+        beforeBulkCreate(users) {
+          users.forEach((user) => {
+            user.password = hashPassword(user.password);
+          });
+        },
+      },
     }
   );
 
