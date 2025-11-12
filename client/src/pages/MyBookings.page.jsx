@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router";
 import { serverApi } from "../helpers/serverApi";
+import { alert } from "../lib/alert";
 
 function rupiah(n) {
   try {
@@ -30,7 +31,13 @@ function diffDays(a, b) {
 
 export default function MyBookingsPage() {
   const navigate = useNavigate();
-  const isLoggedIn = useMemo(() => !!localStorage.getItem("gcr_token"), []);
+  const isLoggedIn = useMemo(
+    () =>
+      !!(
+        localStorage.getItem("gjt_token") || localStorage.getItem("gcr_token")
+      ),
+    []
+  );
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -45,9 +52,7 @@ export default function MyBookingsPage() {
         const { data } = await serverApi.get("/bookings/me");
         setBookings(data);
       } catch (e) {
-        setErr(
-          e?.response?.data?.message || e?.message || "Gagal memuat bookings"
-        );
+        setErr(e.message);
       } finally {
         setLoading(false);
       }
@@ -60,28 +65,34 @@ export default function MyBookingsPage() {
   }
 
   async function handleCancel(id) {
-    const ok = window.confirm("Batalkan booking ini?");
-    if (!ok) return;
+    const ans = await alert.confirm({
+      title: "Batalkan booking?",
+      text: "Status akan menjadi CANCELED.",
+      confirmText: "Ya, batalkan",
+    });
+    if (!ans.isConfirmed) return;
     try {
       await serverApi.patch(`/bookings/${id}/cancel`);
+      await alert.toast("Booking dibatalkan", "success");
       await reload();
     } catch (e) {
-      alert(
-        e?.response?.data?.message || e?.message || "Gagal membatalkan booking"
-      );
+      await alert.error(e.message);
     }
   }
 
   async function handleDelete(id) {
-    const ok = window.confirm("Hapus booking ini secara permanen?");
-    if (!ok) return;
+    const ans = await alert.confirm({
+      title: "Hapus booking?",
+      text: "Tindakan ini tidak bisa dibatalkan.",
+      confirmText: "Hapus",
+    });
+    if (!ans.isConfirmed) return;
     try {
       await serverApi.delete(`/bookings/${id}`);
+      await alert.toast("Booking dihapus", "success");
       await reload();
     } catch (e) {
-      alert(
-        e?.response?.data?.message || e?.message || "Gagal menghapus booking"
-      );
+      await alert.error(e.message);
     }
   }
 

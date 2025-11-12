@@ -1,13 +1,25 @@
 import axios from "axios";
 
+export const BASE_URL = "http://localhost:3000/api";
+
 export const serverApi = axios.create({
-  baseURL: "http://localhost:3000/api",
+  baseURL: BASE_URL,
   headers: { "Content-Type": "application/json" },
+  timeout: 10000,
 });
 
-//! Tempel token kalau ada
 serverApi.interceptors.request.use((config) => {
-  const token = localStorage.getItem("gcr_token");
+  const token =
+    localStorage.getItem("gjt_token") || localStorage.getItem("gcr_token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
+
+serverApi.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    const msg =
+      err?.response?.data?.message || err?.message || "Request failed";
+    return Promise.reject(new Error(msg));
+  }
+);

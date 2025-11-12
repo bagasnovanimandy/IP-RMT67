@@ -1,30 +1,37 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router";
 import { serverApi } from "../helpers/serverApi";
+import { alert } from "../lib/alert";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-
-  // Prefill biar cepat tes (pakai user seed)
   const [email, setEmail] = useState("bagas@example.com");
   const [password, setPassword] = useState("bagas123");
+  const [loading, setLoading] = useState(false);
 
-  const [err, setErr] = useState("");
-
-  const handleSubmit = async (e) => {
+  async function handleSubmit(e) {
     e.preventDefault();
-    setErr("");
+    setLoading(true);
     try {
       const { data } = await serverApi.post("/login", { email, password });
-      localStorage.setItem("gcr_token", data.access_token);
-      localStorage.setItem("gcr_user", JSON.stringify(data.user));
+      const token = data?.access_token;
+      const user = data?.user;
+      if (!token) throw new Error("Token not found");
+      localStorage.setItem("gjt_token", token);
+      localStorage.setItem("gcr_token", token);
+      if (user) localStorage.setItem("gcr_user", JSON.stringify(user));
+      await alert.success("Login successful");
       navigate("/");
     } catch (error) {
-      const msg =
-        error?.response?.data?.message || error?.message || "Login gagal";
-      setErr(msg);
+      await alert.error(error.message);
+    } finally {
+      setLoading(false);
     }
-  };
+  }
+
+  async function handleGoogleLogin() {
+    await alert.info("Google Login will be available after integration.");
+  }
 
   return (
     <div className="row justify-content-center">
@@ -32,7 +39,6 @@ export default function LoginPage() {
         <div className="card shadow-sm">
           <div className="card-body">
             <h1 className="h4 mb-3">Login</h1>
-            {err ? <div className="alert alert-danger">{err}</div> : null}
 
             <form onSubmit={handleSubmit}>
               <div className="mb-3">
@@ -60,8 +66,22 @@ export default function LoginPage() {
                 />
               </div>
 
-              <button className="btn btn-primary w-100">Sign In</button>
+              <button className="btn btn-primary w-100" disabled={loading}>
+                {loading ? "Signing in..." : "Sign In"}
+              </button>
             </form>
+
+            <div className="text-center my-3">
+              <span className="text-muted">or</span>
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-outline-danger w-100"
+              onClick={handleGoogleLogin}
+            >
+              Continue with Google
+            </button>
 
             <p className="mt-3 mb-0">
               Belum punya akun? <Link to="/register">Register</Link>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router";
 import { serverApi } from "../helpers/serverApi";
+import { alert } from "../lib/alert";
 
 function rupiah(n) {
   try {
@@ -13,35 +14,33 @@ function rupiah(n) {
 export default function VehicleDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-
   const [vehicle, setVehicle] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
-
-  // Booking form state
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [submitErr, setSubmitErr] = useState("");
-  const [submitOk, setSubmitOk] = useState("");
 
-  const isLoggedIn = useMemo(() => !!localStorage.getItem("gcr_token"), []);
+  const isLoggedIn = useMemo(
+    () =>
+      !!(
+        localStorage.getItem("gjt_token") || localStorage.getItem("gcr_token")
+      ),
+    []
+  );
 
-  // Fetch detail kendaraan
   useEffect(() => {
     (async () => {
       try {
         const { data } = await serverApi.get(`/vehicles/${id}`);
         setVehicle(data);
       } catch (e) {
-        const msg = e?.response?.data?.message || e?.message || "Fetch failed";
-        setErr(msg);
+        setErr(e.message);
       } finally {
         setLoading(false);
       }
     })();
   }, [id]);
 
-  // Hitung durasi (hari) dan total harga
   const days = useMemo(() => {
     if (!startDate || !endDate) return 0;
     const s = new Date(startDate);
@@ -50,28 +49,16 @@ export default function VehicleDetailPage() {
     return diff > 0 ? Math.round(diff) : 0;
   }, [startDate, endDate]);
 
-  const totalPrice = useMemo(() => {
-    if (!vehicle || !days) return 0;
-    return days * (vehicle.dailyPrice ?? 0);
-  }, [vehicle, days]);
+  const totalPrice = useMemo(
+    () => (!vehicle || !days ? 0 : days * (vehicle.dailyPrice ?? 0)),
+    [vehicle, days]
+  );
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setSubmitErr("");
-    setSubmitOk("");
-
-    // Cek login
-    if (!isLoggedIn) {
-      return navigate("/login");
-    }
-
-    // Validasi form
-    if (!startDate || !endDate) {
-      return setSubmitErr("Tanggal mulai dan selesai wajib diisi.");
-    }
-    if (days < 1) {
-      return setSubmitErr("Durasi minimal 1 hari.");
-    }
+    if (!isLoggedIn) return navigate("/login");
+    if (!startDate || !endDate || days < 1)
+      return alert.error("Tanggal tidak valid (min 1 hari)");
 
     try {
       await serverApi.post("/bookings", {
@@ -79,18 +66,10 @@ export default function VehicleDetailPage() {
         startDate,
         endDate,
       });
-
-      setSubmitOk(
-        "Booking berhasil dibuat. Cek halaman riwayat booking nanti."
-      );
-      // Reset form ringan
-      // setStartDate(""); setEndDate("");
+      await alert.success("Booking berhasil dibuat");
+      // navigate("/mybookings"); // opsional
     } catch (error) {
-      const msg =
-        error?.response?.data?.message ||
-        error?.message ||
-        "Gagal membuat booking";
-      setSubmitErr(msg);
+      await alert.error(error.message);
     }
   }
 
@@ -177,13 +156,6 @@ export default function VehicleDetailPage() {
                   Kamu belum login. <Link to="/login">Login dulu</Link> untuk
                   melakukan booking.
                 </div>
-              )}
-
-              {submitErr && (
-                <div className="alert alert-danger">{submitErr}</div>
-              )}
-              {submitOk && (
-                <div className="alert alert-success">{submitOk}</div>
               )}
 
               <form onSubmit={handleSubmit}>

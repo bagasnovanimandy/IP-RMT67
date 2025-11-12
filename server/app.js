@@ -1,41 +1,30 @@
-// app.js
+// server/app.js
 const express = require("express");
 const cors = require("cors");
-
-const routes = require("./routes"); //! router utama
+const router = require("./routes"); // routes/index.js
+const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
-const PORT = 3000;
 
+// Middlewares
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-//! Health check route
+// Health check
 app.get("/health", (req, res) => {
-  res.status(200).json({
-    message: "Galindo Car Rental API is up and running",
-  });
+  res.status(200).json({ status: "ok", service: "galindo-car-rental" });
 });
 
-//! Pakai router utama untuk semua endpoint API
-app.use("/api", routes);
+// API routes
+app.use("/api", router);
 
-//! 404 handler sederhana
-app.use((req, res, next) => {
-  res.status(404).json({
-    message: "Route not found",
-  });
+// 404 fallback (jika tidak ada route yang cocok)
+app.use((req, res) => {
+  res.status(404).json({ message: "Endpoint not found" });
 });
 
-//! Global error handler sederhana
-app.use((err, req, res, next) => {
-  console.log(err, "<-- Global Error Handler");
-  res.status(err.status || 500).json({
-    message: err.message || "Internal Server Error",
-  });
-});
+// Centralized error handler
+app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+module.exports = app;
