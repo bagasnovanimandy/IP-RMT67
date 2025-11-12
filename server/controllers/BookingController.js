@@ -1,7 +1,7 @@
 const { Booking, Vehicle } = require("../models");
 
 class BookingController {
-  //! POST /api/bookings  (protected)
+  // POST /api/bookings  (customer)
   static async create(req, res, next) {
     try {
       const { VehicleId, startDate, endDate } = req.body;
@@ -17,15 +17,14 @@ class BookingController {
       if (!vehicle)
         return res.status(404).json({ message: "Vehicle not found" });
 
-      const diffDays =
+      const days =
         (new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24);
-      if (diffDays < 1) {
+      if (days < 1)
         return res.status(400).json({ message: "Durasi minimal 1 hari" });
-      }
 
-      const totalPrice = Math.round(diffDays) * vehicle.dailyPrice;
+      const totalPrice = Math.round(days) * vehicle.dailyPrice;
 
-      const newBooking = await Booking.create({
+      const booking = await Booking.create({
         UserId,
         VehicleId,
         startDate,
@@ -34,20 +33,17 @@ class BookingController {
         status: "PENDING",
       });
 
-      res.status(201).json({
-        message: "Booking berhasil dibuat",
-        booking: newBooking,
-      });
+      res.status(201).json({ message: "Booking created", booking });
     } catch (err) {
       next(err);
     }
   }
 
-  //! GET /api/bookings/me  (protected)
+  // GET /api/bookings/me  (customer)
   static async myBookings(req, res, next) {
     try {
       const { id: UserId } = req.user;
-      const data = await Booking.findAll({
+      const rows = await Booking.findAll({
         where: { UserId },
         include: {
           model: Vehicle,
@@ -55,20 +51,20 @@ class BookingController {
         },
         order: [["id", "DESC"]],
       });
-      res.status(200).json(data);
+      res.status(200).json(rows);
     } catch (err) {
       next(err);
     }
   }
 
-  //! PATCH /api/bookings/:id/cancel  (owner/admin via canManageBooking)
+  // PATCH /api/bookings/:id/cancel  (owner/admin)
   static async cancel(req, res, next) {
     try {
-      const { booking } = req; // diisi middleware
+      const { booking } = req;
       if (booking.status !== "PENDING") {
-        return res.status(400).json({
-          message: "Hanya booking dengan status PENDING yang dapat dibatalkan",
-        });
+        return res
+          .status(400)
+          .json({ message: "Hanya PENDING yang bisa dibatalkan" });
       }
       booking.status = "CANCELED";
       await booking.save();
@@ -78,38 +74,10 @@ class BookingController {
     }
   }
 
-  //! PATCH /api/bookings/:id/status  (admin only)
-  // body: { status: "PENDING" | "CONFIRMED" | "COMPLETED" | "REJECTED" | "CANCELED" }
-  static async updateStatus(req, res, next) {
-    try {
-      const { id } = req.params;
-      const { status } = req.body;
-      const allowed = [
-        "PENDING",
-        "CONFIRMED",
-        "COMPLETED",
-        "REJECTED",
-        "CANCELED",
-      ];
-      if (!allowed.includes(status)) {
-        return res.status(400).json({ message: "Invalid status" });
-      }
-      const booking = await Booking.findByPk(id);
-      if (!booking)
-        return res.status(404).json({ message: "Booking not found" });
-
-      booking.status = status;
-      await booking.save();
-      res.status(200).json({ message: "Status diperbarui", booking });
-    } catch (err) {
-      next(err);
-    }
-  }
-
-  //! DELETE /api/bookings/:id  (owner/admin via canManageBooking)
+  // DELETE /api/bookings/:id  (owner/admin)
   static async destroy(req, res, next) {
     try {
-      const { booking } = req; // diisi middleware
+      const { booking } = req;
       await booking.destroy();
       res.status(200).json({ message: "Booking deleted" });
     } catch (err) {

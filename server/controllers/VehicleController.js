@@ -16,12 +16,10 @@ class VehicleController {
         limit = "9",
       } = req.query;
 
-      // sanitasi & default
       const _page = Math.max(1, parseInt(page) || 1);
-      const _limit = Math.min(24, Math.max(1, parseInt(limit) || 9)); // batasi 24 per halaman
+      const _limit = Math.min(24, Math.max(1, parseInt(limit) || 9));
       const offset = (_page - 1) * _limit;
 
-      // WHERE vehicles
       const where = {};
       if (min || max) {
         const _min = Number.isFinite(+min) ? +min : 0;
@@ -38,12 +36,9 @@ class VehicleController {
           { brand: { [Op.iLike]: term } },
           { type: { [Op.iLike]: term } },
           { plateNumber: { [Op.iLike]: term } },
-          // deskripsi bisa berat—ikutkan kalau perlu:
-          // { description: { [Op.iLike]: term } },
         ];
       }
 
-      // FILTER cabang
       const include = [
         {
           model: Branch,
@@ -53,7 +48,6 @@ class VehicleController {
         },
       ];
 
-      // SORT aman
       const sortable = new Set(["createdAt", "dailyPrice", "year", "name"]);
       const sortKey = sortable.has(String(sort)) ? String(sort) : "createdAt";
       const sortOrder = String(order).toUpperCase() === "ASC" ? "ASC" : "DESC";
@@ -66,21 +60,19 @@ class VehicleController {
         offset,
       });
 
-      const totalPages = Math.max(1, Math.ceil(count / _limit));
-
       res.status(200).json({
         data: rows,
         meta: {
           page: _page,
           limit: _limit,
           total: count,
-          totalPages,
+          totalPages: Math.max(1, Math.ceil(count / _limit)),
           sort: sortKey,
           order: sortOrder,
-          q: q || "",
-          city: city || "",
-          min: min || "",
-          max: max || "",
+          q,
+          city,
+          min,
+          max,
         },
       });
     } catch (err) {
@@ -88,7 +80,7 @@ class VehicleController {
     }
   }
 
-  // GET /api/vehicles/:id (biarkan punyamu yang lama)
+  // GET /api/vehicles/:id
   static async detail(req, res, next) {
     try {
       const { id } = req.params;

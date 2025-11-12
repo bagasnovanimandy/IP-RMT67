@@ -1,39 +1,29 @@
-const { verifyToken } = require("../helpers/jwt");
+// middleware/authentication.js
+const jwt = require("jsonwebtoken");
 const { User } = require("../models");
 
-async function authentication(req, res, next) {
+const SECRET = process.env.JWT_SECRET || "secret-galindo";
+
+module.exports = async function authentication(req, res, next) {
   try {
-    const { authorization } = req.headers;
+    const auth = req.headers.authorization || "";
+    const [, token] = auth.split(" ");
+    if (!token) return res.status(401).json({ message: "Unauthorized" });
 
-    if (!authorization) {
-      return res.status(401).json({ message: "Missing access token" });
-    }
-
-    const [type, token] = authorization.split(" ");
-
-    if (type !== "Bearer" || !token) {
-      return res.status(401).json({ message: "Invalid access token format" });
-    }
-
-    const payload = verifyToken(token); //! { id: ... }
-
-    const user = await User.findByPk(payload.id);
-
-    if (!user) {
-      return res.status(401).json({ message: "Invalid access token" });
-    }
+    const payload = jwt.verify(token, SECRET);
+    const user = await User.findByPk(payload.id, {
+      attributes: ["id", "email", "role", "fullName"],
+    });
+    if (!user) return res.status(401).json({ message: "Unauthorized" });
 
     req.user = {
       id: user.id,
       email: user.email,
       role: user.role,
+      fullName: user.fullName,
     };
-
     next();
   } catch (err) {
-    console.log(err, "<-- authentication error");
-    return res.status(401).json({ message: "Invalid access token" });
+    next(err);
   }
-}
-
-module.exports = authentication;
+};
