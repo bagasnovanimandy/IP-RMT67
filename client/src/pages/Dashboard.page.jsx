@@ -232,9 +232,7 @@ export default function DashboardPage() {
     }
   }
 
-  if (!isLoggedIn || !isAdmin) return null;
-  if (loading) return <div className="text-center my-5">Loading dashboard...</div>;
-
+  // All hooks must be called before any conditional returns
   const stats = useMemo(() => {
     const totalVehicles = vehicles.length;
     const totalBookings = bookings.length;
@@ -252,6 +250,15 @@ export default function DashboardPage() {
       totalRevenue,
     };
   }, [vehicles, bookings]);
+
+  // Conditional rendering - must be after all hooks
+  if (!isLoggedIn || !isAdmin) {
+    return <div className="text-center my-5">Redirecting...</div>;
+  }
+  
+  if (loading) {
+    return <div className="text-center my-5">Loading dashboard...</div>;
+  }
 
   return (
     <div>

@@ -19,7 +19,7 @@ class AdminBookingController {
             model: Vehicle,
             attributes: ["id", "name", "dailyPrice", "imgUrl"],
           },
-          { model: User, attributes: ["id", "email", "fullName", "role"] },
+          { model: User, attributes: ["id", "email", "name", "role"] },
         ],
         order: [["id", "DESC"]],
         limit: _limit,
