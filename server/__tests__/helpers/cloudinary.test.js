@@ -5,10 +5,11 @@
 jest.mock("cloudinary", () => {
   const mockUploadStream = jest.fn();
   const mockDestroy = jest.fn();
+  const mockConfig = jest.fn();
   
   return {
     v2: {
-      config: jest.fn(),
+      config: mockConfig,
       uploader: {
         upload_stream: mockUploadStream,
         destroy: mockDestroy,
@@ -16,8 +17,14 @@ jest.mock("cloudinary", () => {
     },
     __mockUploadStream: mockUploadStream,
     __mockDestroy: mockDestroy,
+    __mockConfig: mockConfig,
   };
 });
+
+// Mock dotenv to prevent loading .env file during tests
+jest.mock("dotenv", () => ({
+  config: jest.fn(),
+}));
 
 const cloudinary = require("cloudinary").v2;
 const { uploadBuffer, deleteByPublicId, DEFAULT_FOLDER } = require("../../helpers/cloudinary");
@@ -25,6 +32,11 @@ const { uploadBuffer, deleteByPublicId, DEFAULT_FOLDER } = require("../../helper
 describe("Cloudinary Helper", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    // Clear any pending timers
+    jest.clearAllTimers();
   });
 
   describe("uploadBuffer", () => {
@@ -36,15 +48,15 @@ describe("Cloudinary Helper", () => {
       };
 
       cloudinary.uploader.upload_stream.mockImplementation((options, callback) => {
-        // Simulate successful upload
-        setTimeout(() => {
-          callback(null, mockResult);
-        }, 0);
-        return {
+        // Simulate successful upload - call callback immediately when end is called
+        const stream = {
           end: jest.fn((buffer) => {
             expect(buffer).toBe(mockBuffer);
+            // Call callback immediately (synchronously) in test mock
+            callback(null, mockResult);
           }),
         };
+        return stream;
       });
 
       uploadBuffer(mockBuffer)
@@ -65,8 +77,12 @@ describe("Cloudinary Helper", () => {
       const mockResult = { public_id: "test-id" };
 
       cloudinary.uploader.upload_stream.mockImplementation((options, callback) => {
-        setTimeout(() => callback(null, mockResult), 0);
-        return { end: jest.fn() };
+        return {
+          end: jest.fn(() => {
+            // Call callback synchronously in test (mock doesn't need async)
+            callback(null, mockResult);
+          }),
+        };
       });
 
       uploadBuffer(mockBuffer, { folder: customFolder })
@@ -87,8 +103,12 @@ describe("Cloudinary Helper", () => {
       const mockResult = { public_id: publicId };
 
       cloudinary.uploader.upload_stream.mockImplementation((options, callback) => {
-        setTimeout(() => callback(null, mockResult), 0);
-        return { end: jest.fn() };
+        return {
+          end: jest.fn(() => {
+            // Call callback synchronously in test (mock doesn't need async)
+            callback(null, mockResult);
+          }),
+        };
       });
 
       uploadBuffer(mockBuffer, { public_id: publicId })
@@ -108,8 +128,12 @@ describe("Cloudinary Helper", () => {
       const mockResult = { public_id: "test-id" };
 
       cloudinary.uploader.upload_stream.mockImplementation((options, callback) => {
-        setTimeout(() => callback(null, mockResult), 0);
-        return { end: jest.fn() };
+        return {
+          end: jest.fn(() => {
+            // Call callback synchronously in test (mock doesn't need async)
+            callback(null, mockResult);
+          }),
+        };
       });
 
       uploadBuffer(mockBuffer, { overwrite: false })
@@ -129,8 +153,12 @@ describe("Cloudinary Helper", () => {
       const mockError = new Error("Upload failed");
 
       cloudinary.uploader.upload_stream.mockImplementation((options, callback) => {
-        setTimeout(() => callback(mockError, null), 0);
-        return { end: jest.fn() };
+        return {
+          end: jest.fn(() => {
+            // Call callback synchronously in test (mock doesn't need async)
+            callback(mockError, null);
+          }),
+        };
       });
 
       uploadBuffer(mockBuffer)
@@ -148,8 +176,12 @@ describe("Cloudinary Helper", () => {
       const mockResult = { public_id: "test-id" };
 
       cloudinary.uploader.upload_stream.mockImplementation((options, callback) => {
-        setTimeout(() => callback(null, mockResult), 0);
-        return { end: jest.fn() };
+        return {
+          end: jest.fn(() => {
+            // Call callback synchronously in test (mock doesn't need async)
+            callback(null, mockResult);
+          }),
+        };
       });
 
       uploadBuffer(mockBuffer)

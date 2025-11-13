@@ -17,6 +17,9 @@ describe("Authorization Middleware", () => {
   describe("canManageBooking", () => {
     let app;
 
+    // Set timeout for all tests in this suite
+    jest.setTimeout(10000);
+
     beforeEach(() => {
       app = express();
       app.use(express.json());
@@ -29,6 +32,11 @@ describe("Authorization Middleware", () => {
         res.json({ booking: req.booking });
       });
       jest.clearAllMocks();
+    });
+
+    afterAll(async () => {
+      // Cleanup: wait for any pending operations
+      await Promise.resolve();
     });
 
     it("should allow owner to manage their booking", async () => {

@@ -102,7 +102,8 @@ describe("POST /api/ai/recommend", () => {
 
       // Verify exclude conditions untuk city car
       const findAllCall = Vehicle.findAll.mock.calls[0][0];
-      expect(findAllCall.where).toHaveProperty(Op.and);
+      // Check for Op.and using bracket notation since Op.and is a Symbol
+      expect(findAllCall.where[Op.and]).toBeDefined();
       
       // Verify bahwa exclude conditions ada
       const andConditions = findAllCall.where[Op.and];
@@ -194,11 +195,303 @@ describe("POST /api/ai/recommend", () => {
     });
   });
 
+  describe("Filter berdasarkan budget", () => {
+    test("should filter by min budget", async () => {
+      analyzePrompt.mockResolvedValue({
+        city: null,
+        days: null,
+        people: null,
+        type: null,
+        budgetPerDay: { min: 300000, max: null },
+        notes: "Test",
+      });
+
+      Vehicle.findAll.mockResolvedValue([]);
+
+      await request(app)
+        .post("/api/ai/recommend")
+        .send({ prompt: "mobil murah" })
+        .expect(200);
+
+      const findAllCall = Vehicle.findAll.mock.calls[0][0];
+      expect(findAllCall.where.dailyPrice).toEqual({ [Op.gte]: 300000 });
+    });
+
+    test("should filter by max budget", async () => {
+      analyzePrompt.mockResolvedValue({
+        city: null,
+        days: null,
+        people: null,
+        type: null,
+        budgetPerDay: { min: null, max: 500000 },
+        notes: "Test",
+      });
+
+      Vehicle.findAll.mockResolvedValue([]);
+
+      await request(app)
+        .post("/api/ai/recommend")
+        .send({ prompt: "mobil murah" })
+        .expect(200);
+
+      const findAllCall = Vehicle.findAll.mock.calls[0][0];
+      expect(findAllCall.where.dailyPrice).toEqual({ [Op.lte]: 500000 });
+    });
+
+    test("should filter by min and max budget (between)", async () => {
+      analyzePrompt.mockResolvedValue({
+        city: null,
+        days: null,
+        people: null,
+        type: null,
+        budgetPerDay: { min: 300000, max: 500000 },
+        notes: "Test",
+      });
+
+      Vehicle.findAll.mockResolvedValue([]);
+
+      await request(app)
+        .post("/api/ai/recommend")
+        .send({ prompt: "mobil murah" })
+        .expect(200);
+
+      const findAllCall = Vehicle.findAll.mock.calls[0][0];
+      expect(findAllCall.where.dailyPrice).toEqual({ [Op.between]: [300000, 500000] });
+    });
+  });
+
+  describe("Filter berdasarkan type", () => {
+    test("should filter by vehicle type", async () => {
+      analyzePrompt.mockResolvedValue({
+        city: null,
+        days: null,
+        people: null,
+        type: "MPV",
+        budgetPerDay: { min: null, max: null },
+        notes: "Test",
+      });
+
+      Vehicle.findAll.mockResolvedValue([]);
+
+      await request(app)
+        .post("/api/ai/recommend")
+        .send({ prompt: "mobil MPV" })
+        .expect(200);
+
+      const findAllCall = Vehicle.findAll.mock.calls[0][0];
+      expect(findAllCall.where[Op.or]).toBeDefined();
+      expect(findAllCall.where[Op.or]).toHaveLength(3);
+    });
+  });
+
+  describe("Filter berdasarkan city dan originCity", () => {
+    test("should prioritize originCity over city", async () => {
+      analyzePrompt.mockResolvedValue({
+        originCity: "Jakarta",
+        city: "Bandung",
+        days: null,
+        people: null,
+        type: null,
+        budgetPerDay: { min: null, max: null },
+        notes: "Test",
+      });
+
+      Vehicle.findAll.mockResolvedValue([]);
+
+      await request(app)
+        .post("/api/ai/recommend")
+        .send({ prompt: "dari Jakarta ke Bandung" })
+        .expect(200);
+
+      const findAllCall = Vehicle.findAll.mock.calls[0][0];
+      expect(findAllCall.include[0].where.city).toBe("Jakarta");
+      expect(findAllCall.include[0].where.city).not.toBe("Bandung");
+    });
+
+    test("should use city when originCity is not available", async () => {
+      analyzePrompt.mockResolvedValue({
+        originCity: null,
+        city: "Bandung",
+        days: null,
+        people: null,
+        type: null,
+        budgetPerDay: { min: null, max: null },
+        notes: "Test",
+      });
+
+      Vehicle.findAll.mockResolvedValue([]);
+
+      await request(app)
+        .post("/api/ai/recommend")
+        .send({ prompt: "di Bandung" })
+        .expect(200);
+
+      const findAllCall = Vehicle.findAll.mock.calls[0][0];
+      expect(findAllCall.include[0].where.city).toBe("Bandung");
+    });
+  });
+
+  describe("Fallback parsing manual ketika AI gagal", () => {
+    test("should extract people from prompt when AI fails", async () => {
+      analyzePrompt.mockResolvedValue({
+        city: null,
+        days: null,
+        people: null,
+        type: null,
+        budgetPerDay: { min: null, max: null },
+        notes: "Error during analysis: test error",
+      });
+
+      Vehicle.findAll.mockResolvedValue([]);
+
+      const response = await request(app)
+        .post("/api/ai/recommend")
+        .send({ prompt: "butuh mobil untuk 6 orang" })
+        .expect(200);
+
+      expect(response.body.filters.people).toBe(6);
+    });
+
+    test("should extract people from 'keluarga X orang' pattern", async () => {
+      analyzePrompt.mockResolvedValue({
+        city: null,
+        days: null,
+        people: null,
+        type: null,
+        budgetPerDay: { min: null, max: null },
+        notes: "Error during analysis: test error",
+      });
+
+      Vehicle.findAll.mockResolvedValue([]);
+
+      const response = await request(app)
+        .post("/api/ai/recommend")
+        .send({ prompt: "keluarga 4 orang" })
+        .expect(200);
+
+      expect(response.body.filters.people).toBe(4);
+    });
+
+    test("should extract people from 'keluarga X' pattern", async () => {
+      analyzePrompt.mockResolvedValue({
+        city: null,
+        days: null,
+        people: null,
+        type: null,
+        budgetPerDay: { min: null, max: null },
+        notes: "Error during analysis: test error",
+      });
+
+      Vehicle.findAll.mockResolvedValue([]);
+
+      const response = await request(app)
+        .post("/api/ai/recommend")
+        .send({ prompt: "keluarga 5" })
+        .expect(200);
+
+      expect(response.body.filters.people).toBe(5);
+    });
+
+    test("should extract people from 'X people' pattern", async () => {
+      analyzePrompt.mockResolvedValue({
+        city: null,
+        days: null,
+        people: null,
+        type: null,
+        budgetPerDay: { min: null, max: null },
+        notes: "Error during analysis: test error",
+      });
+
+      Vehicle.findAll.mockResolvedValue([]);
+
+      const response = await request(app)
+        .post("/api/ai/recommend")
+        .send({ prompt: "butuh mobil untuk 7 people" })
+        .expect(200);
+
+      expect(response.body.filters.people).toBe(7);
+    });
+  });
+
+  describe("Error handling", () => {
+    test("should handle AI_ERROR and return 502", async () => {
+      const aiError = new Error("AI_ERROR: API key invalid");
+      analyzePrompt.mockRejectedValue(aiError);
+
+      const response = await request(app)
+        .post("/api/ai/recommend")
+        .send({ prompt: "test" })
+        .expect(502);
+
+      expect(response.body).toEqual({
+        message: "AI service unavailable",
+        detail: "API key invalid",
+      });
+    });
+
+    test("should handle non-AI error and pass to next middleware", async () => {
+      const serverError = new Error("Database connection failed");
+      analyzePrompt.mockRejectedValue(serverError);
+
+      // Mock next function
+      const errorHandler = (err, req, res, next) => {
+        res.status(500).json({ message: err.message });
+      };
+      app.use(errorHandler);
+
+      const response = await request(app)
+        .post("/api/ai/recommend")
+        .send({ prompt: "test" })
+        .expect(500);
+
+      expect(response.body.message).toBe("Database connection failed");
+    });
+  });
+
+  describe("Op.and already exists case", () => {
+    test("should append to existing Op.and when people >= 6", async () => {
+      analyzePrompt.mockResolvedValue({
+        city: null,
+        days: null,
+        people: 6,
+        type: "MPV",
+        budgetPerDay: { min: null, max: null },
+        notes: "Test",
+      });
+
+      Vehicle.findAll.mockResolvedValue([]);
+
+      await request(app)
+        .post("/api/ai/recommend")
+        .send({ prompt: "keluarga 6 orang MPV" })
+        .expect(200);
+
+      const findAllCall = Vehicle.findAll.mock.calls[0][0];
+      // Should have Op.and with exclude conditions
+      expect(findAllCall.where[Op.and]).toBeDefined();
+      expect(Array.isArray(findAllCall.where[Op.and])).toBe(true);
+    });
+  });
+
   describe("Edge cases", () => {
     test("Prompt kosong harus return 400", async () => {
       await request(app)
         .post("/api/ai/recommend")
         .send({ prompt: "" })
+        .expect(400);
+    });
+
+    test("Prompt dengan whitespace only harus return 400", async () => {
+      await request(app)
+        .post("/api/ai/recommend")
+        .send({ prompt: "   " })
+        .expect(400);
+    });
+
+    test("Prompt tanpa body harus return 400", async () => {
+      await request(app)
+        .post("/api/ai/recommend")
+        .send({})
         .expect(400);
     });
 
@@ -223,6 +516,26 @@ describe("POST /api/ai/recommend", () => {
 
       const findAllCall = Vehicle.findAll.mock.calls[0][0];
       expect(findAllCall.where.seat).toBeUndefined();
+    });
+
+    test("should handle days filter", async () => {
+      analyzePrompt.mockResolvedValue({
+        city: null,
+        days: 3,
+        people: null,
+        type: null,
+        budgetPerDay: { min: null, max: null },
+        notes: "Test",
+      });
+
+      Vehicle.findAll.mockResolvedValue([]);
+
+      const response = await request(app)
+        .post("/api/ai/recommend")
+        .send({ prompt: "rental 3 hari" })
+        .expect(200);
+
+      expect(response.body.filters.days).toBe(3);
     });
   });
 });

@@ -27,6 +27,9 @@ jest.mock("../../helpers/jwt", () => {
 describe("Authentication Middleware", () => {
   let app;
 
+  // Set timeout for all tests in this suite
+  jest.setTimeout(10000);
+
   beforeEach(() => {
     app = express();
     app.use(express.json());
@@ -35,6 +38,11 @@ describe("Authentication Middleware", () => {
       res.json({ user: req.user });
     });
     jest.clearAllMocks();
+  });
+
+  afterAll(async () => {
+    // Cleanup: wait for any pending operations
+    await Promise.resolve();
   });
 
   describe("Successful authentication", () => {

@@ -7,7 +7,7 @@
     "dev": "nodemon app.js",
     "start": "node app.js",
     "sequelize": "sequelize",
-    "test": "jest",
+    "test": "node test-runner.js",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
   },
