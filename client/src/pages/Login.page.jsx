@@ -11,7 +11,7 @@ export default function LoginPage() {
   const dispatch = useAppDispatch();
   const [email, setEmail] = useState("bagas@example.com");
   const [password, setPassword] = useState("bagas123");
-  const [loading, setLoadingLocal] = useState(false);
+  const [loadingLocal, setLoadingLocal] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();

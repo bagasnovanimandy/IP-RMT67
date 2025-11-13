@@ -7,9 +7,18 @@ export default function Navbar() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   
-  // Get state from Redux
-  const { isAuthenticated, user } = useAppSelector((state) => state.auth);
-  const isAdmin = user?.role === "admin";
+  // Get state from Redux with safe fallback
+  const authState = useAppSelector((state) => {
+    try {
+      return state?.auth || { isAuthenticated: false, user: null };
+    } catch (error) {
+      console.error("Error reading auth state:", error);
+      return { isAuthenticated: false, user: null };
+    }
+  });
+  
+  const { isAuthenticated = false, user = null } = authState || {};
+  const isAdmin = user?.role === "admin" || false;
 
   const handleLogout = async () => {
     const result = await alert.confirm({
