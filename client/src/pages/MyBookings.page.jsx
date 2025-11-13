@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router";
 import { serverApi } from "../helpers/serverApi";
 import { alert } from "../lib/alert";
+import { initSnapPayment } from "../helpers/payment";
 
 function rupiah(n) {
   try {
@@ -96,6 +97,15 @@ export default function MyBookingsPage() {
     }
   }
 
+  async function handlePay(bookingId) {
+    try {
+      // Navigate to payment checkout page
+      navigate(`/payment/checkout/${bookingId}`);
+    } catch (e) {
+      await alert.error(e.message || "Gagal memuat halaman pembayaran");
+    }
+  }
+
   if (!isLoggedIn) return null;
   if (loading) return <p className="text-center my-5">Loading bookings...</p>;
   if (err) return <div className="alert alert-danger">{err}</div>;
@@ -135,15 +145,19 @@ export default function MyBookingsPage() {
               {bookings.map((b) => {
                 const days = diffDays(b.startDate, b.endDate);
                 const badgeClass =
-                  b.status === "PENDING"
+                  b.status === "PENDING_PAYMENT"
+                    ? "text-bg-warning"
+                    : b.status === "PAID"
+                    ? "text-bg-success"
+                    : b.status === "CANCELLED" || b.status === "CANCELED"
+                    ? "text-bg-danger"
+                    : b.status === "COMPLETED"
+                    ? "text-bg-info"
+                    : b.status === "PENDING"
                     ? "text-bg-secondary"
                     : b.status === "CONFIRMED"
                     ? "text-bg-primary"
-                    : b.status === "COMPLETED"
-                    ? "text-bg-success"
-                    : b.status === "REJECTED"
-                    ? "text-bg-warning"
-                    : "text-bg-danger";
+                    : "text-bg-secondary";
                 return (
                   <tr key={b.id}>
                     <td>{b.id}</td>
@@ -185,17 +199,23 @@ export default function MyBookingsPage() {
                       <div className="btn-group">
                         <button
                           className="btn btn-sm btn-outline-primary"
-                          disabled
+                          onClick={() => handlePay(b.id)}
+                          disabled={b.status !== "PENDING_PAYMENT"}
+                          title={
+                            b.status !== "PENDING_PAYMENT"
+                              ? "Hanya booking dengan status PENDING_PAYMENT yang bisa dibayar"
+                              : "Bayar booking"
+                          }
                         >
                           Pay
                         </button>
                         <button
                           className="btn btn-sm btn-outline-danger"
                           onClick={() => handleCancel(b.id)}
-                          disabled={b.status !== "PENDING"}
+                          disabled={b.status !== "PENDING_PAYMENT"}
                           title={
-                            b.status !== "PENDING"
-                              ? "Hanya PENDING bisa dibatalkan"
+                            b.status !== "PENDING_PAYMENT"
+                              ? "Hanya PENDING_PAYMENT bisa dibatalkan"
                               : "Batalkan booking"
                           }
                         >

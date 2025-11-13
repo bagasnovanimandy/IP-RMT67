@@ -3,6 +3,7 @@ const express = require("express");
 const VehicleController = require("../controllers/VehicleController");
 const UserController = require("../controllers/UserController");
 const BookingController = require("../controllers/BookingController");
+const PaymentController = require("../controllers/PaymentController");
 const AdminBookingController = require("../controllers/AdminBookingController");
 const AdminVehicleController = require("../controllers/AdminVehicleController");
 const authentication = require("../middleware/authentication");
@@ -18,6 +19,9 @@ router.post("/google-login", UserController.googleLogin);
 router.get("/vehicles", VehicleController.list);
 router.get("/vehicles/:id", VehicleController.detail);
 
+// Midtrans webhook (bypasses authentication - must be before auth middleware)
+router.post("/payments/midtrans/notification", PaymentController.handleNotification);
+
 /** CUSTOMER */
 router.use(authentication);
 router.post("/bookings", BookingController.create);
@@ -28,6 +32,10 @@ router.patch(
   BookingController.cancel
 );
 router.delete("/bookings/:id", canManageBooking, BookingController.destroy);
+
+// Payment routes (require authentication)
+router.post("/payments/midtrans/checkout", PaymentController.checkout);
+router.get("/payments/:bookingId", PaymentController.getPaymentStatus);
 
 /** ADMIN */
 const admin = express.Router();

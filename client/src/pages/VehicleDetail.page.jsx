@@ -110,9 +110,16 @@ export default function VehicleDetailPage() {
 
       console.log("Sending booking data:", bookingData);
 
-      await serverApi.post("/bookings", bookingData);
-      await alert.success("Booking berhasil dibuat");
-      navigate("/mybookings");
+      const { data } = await serverApi.post("/bookings", bookingData);
+      const booking = data.booking;
+      
+      // Redirect to payment checkout
+      if (booking && booking.id) {
+        navigate(`/payment/checkout/${booking.id}`);
+      } else {
+        await alert.success("Booking berhasil dibuat");
+        navigate("/mybookings");
+      }
     } catch (error) {
       console.error("Booking error:", error);
       const errorMessage = error?.response?.data?.message || error?.message || "Gagal membuat booking";

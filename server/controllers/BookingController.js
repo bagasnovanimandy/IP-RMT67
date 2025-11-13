@@ -44,7 +44,7 @@ class BookingController {
         startDate: start,
         endDate: end,
         totalPrice,
-        status: "PENDING",
+        status: "PENDING_PAYMENT",
       });
 
       res.status(201).json({ message: "Booking created", booking });
@@ -75,10 +75,10 @@ class BookingController {
   static async cancel(req, res, next) {
     try {
       const { booking } = req;
-      if (booking.status !== "PENDING") {
+      if (booking.status !== "PENDING_PAYMENT") {
         return res
           .status(400)
-          .json({ message: "Hanya PENDING yang bisa dibatalkan" });
+          .json({ message: "Hanya PENDING_PAYMENT yang bisa dibatalkan" });
       }
       booking.status = "CANCELED";
       await booking.save();

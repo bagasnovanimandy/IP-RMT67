@@ -5,6 +5,11 @@ module.exports = (sequelize, DataTypes) => {
     static associate(models) {
       Booking.belongsTo(models.User);
       Booking.belongsTo(models.Vehicle);
+      Booking.hasMany(models.Payment, {
+        foreignKey: "BookingId",
+        onUpdate: "CASCADE",
+        onDelete: "CASCADE",
+      });
     }
   }
   Booking.init(
@@ -37,7 +42,7 @@ module.exports = (sequelize, DataTypes) => {
       status: {
         type: DataTypes.STRING,
         allowNull: false,
-        defaultValue: "PENDING",
+        defaultValue: "PENDING_PAYMENT",
       },
     },
     {
