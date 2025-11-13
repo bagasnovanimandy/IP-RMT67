@@ -31,7 +31,8 @@ You are an assistant that extracts car rental needs from a user prompt.
 Output only a valid JSON object (NO backticks, NO explanations, NO surrounding text) with the following schema:
 
 {
-  "city": string | null,          // City for pickup, e.g.: "Jakarta", "Bandung"
+  "originCity": string | null,    // City of origin/departure (e.g., "Jakarta" from "berangkat dari jakarta")
+  "city": string | null,          // Destination city for pickup, e.g.: "Jakarta", "Bandung"
   "days": number | null,          // Estimated rental duration in days (if mentioned)
   "people": number | null,        // Number of passengers (if mentioned)
   "type": string | null,          // MPV | SUV | VAN | CityCar | Commuter | null
@@ -41,6 +42,8 @@ Output only a valid JSON object (NO backticks, NO explanations, NO surrounding t
 
 Extraction Rules:
 - Fill 'null' if uncertain.
+- originCity: Extract from phrases like "berangkat dari X", "dari X", "asal X", "domisili X", "lokasi awal X". This is the user's starting location.
+- city: Extract destination city mentioned in the prompt (e.g., "di Bandung", "ke Bandung", "Bandung").
 - budgetPerDay.min/max must be plain numbers (Rupiah, no separators).
 - Budget inference: "murah" (~350000 max); "hemat" (300000-400000); "premium" (>600000 min).
 - Type inference: 'keluarga' (>5 people) -> MPV; 'rombongan/elf/hiace' -> VAN/Commuter; 'offroad/gr sport' -> SUV.
@@ -76,33 +79,94 @@ async function analyzePrompt(userPrompt) {
   const prompt = buildSystemPrompt(userPrompt);
 
   try {
-    const result = await model.generateContent({
-      contents: [prompt],
-      config: {
+    // Generate content dengan JSON response mode
+    const result = await model.generateContent(prompt, {
+      generationConfig: {
         responseMimeType: "application/json", // Meminta output JSON secara eksplisit
       },
     });
 
-    const text = result?.response?.text?.() || "{}";
+    let text = result?.response?.text?.() || "{}";
 
-    // Karena kita menggunakan responseMimeType: "application/json",
-    // hasilnya seharusnya sudah bersih dari code fences dan siap di-parse.
-    const parsed = JSON.parse(text);
+    // Bersihkan response dari code fences jika ada (backup jika responseMimeType tidak bekerja)
+    text = text.trim();
+    // Hapus markdown code fences jika ada
+    if (text.startsWith("```json")) {
+      text = text.replace(/^```json\s*/, "").replace(/\s*```$/, "");
+    } else if (text.startsWith("```")) {
+      text = text.replace(/^```\s*/, "").replace(/\s*```$/, "");
+    }
 
-    return parsed;
+    // Parse JSON dengan error handling
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch (parseError) {
+      console.error("[AI] JSON parse error. Raw text:", text.substring(0, 200));
+      throw new Error(`Failed to parse JSON response: ${parseError.message}`);
+    }
+
+    // Validasi struktur response
+    if (typeof parsed !== "object" || parsed === null) {
+      console.error("[AI] Invalid response structure:", parsed);
+      throw new Error("Response is not a valid object");
+    }
+
+    // Normalisasi response untuk memastikan semua field ada
+    const normalized = {
+      originCity: parsed.originCity || null,
+      city: parsed.city || null,
+      days: parsed.days || null,
+      people: parsed.people || null,
+      type: parsed.type || null,
+      budgetPerDay: {
+        min: parsed.budgetPerDay?.min || null,
+        max: parsed.budgetPerDay?.max || null,
+      },
+      notes: parsed.notes || "Analisis kebutuhan perjalanan berhasil dilakukan.",
+    };
+    
+    // Log response yang berhasil untuk debugging
+    console.log("[AI] analyzePrompt success:", {
+      originCity: normalized.originCity,
+      city: normalized.city,
+      people: normalized.people,
+      days: normalized.days,
+      type: normalized.type,
+      budget: normalized.budgetPerDay,
+    });
+    
+    return normalized;
   } catch (e) {
+    // Logging detail untuk debugging
+    console.error("[AI] analyzePrompt error:", {
+      name: e?.name,
+      message: e?.message,
+      stack: e?.stack?.substring(0, 200),
+      constructor: e?.constructor?.name,
+    });
+
     // Deteksi apakah error berasal dari Gemini API
+    // Cek berbagai indikator error dari Google Generative AI SDK
     const isGeminiError = 
       e.stack?.includes("generativelanguage.googleapis.com") ||
       e.message?.includes("generativelanguage.googleapis.com") ||
+      e.message?.includes("googleapis.com") ||
       e.name === "GoogleGenerativeAIError" ||
-      (e.constructor && e.constructor.name === "GoogleGenerativeAIError");
-
-    // Logging dengan format yang konsisten
-    console.error("[AI] model=%s err=%s", MODEL_NAME, e?.message || "Unknown error");
+      e.name === "ClientError" ||
+      (e.constructor && e.constructor.name === "GoogleGenerativeAIError") ||
+      // Cek error code dari Gemini API
+      (e.code && (e.code === 400 || e.code === 401 || e.code === 403 || e.code === 404 || e.code === 429 || e.code >= 500)) ||
+      // Cek error message yang umum dari Gemini
+      e.message?.toLowerCase().includes("api key") ||
+      e.message?.toLowerCase().includes("quota") ||
+      e.message?.toLowerCase().includes("rate limit") ||
+      e.message?.toLowerCase().includes("model not found") ||
+      e.message?.toLowerCase().includes("invalid model");
 
     // Jika error dari Gemini, throw error dengan prefix AI_ERROR
     if (isGeminiError) {
+      console.error("[AI] Gemini API error detected:", e.message);
       const aiError = new Error(`AI_ERROR: ${e.message || "Unknown Gemini API error"}`);
       aiError.originalError = e;
       throw aiError;
@@ -114,9 +178,12 @@ async function analyzePrompt(userPrompt) {
       errorMessage = "GEMINI_API_KEY tidak valid atau tidak ditemukan. Pastikan file .env berisi GEMINI_API_KEY yang valid.";
     } else if (errorMessage.includes("fetching") || errorMessage.includes("network") || errorMessage.includes("ECONNREFUSED")) {
       errorMessage = "Tidak dapat terhubung ke Google Generative AI API. Periksa koneksi internet atau API key.";
+    } else if (errorMessage.includes("JSON") || errorMessage.includes("parse")) {
+      errorMessage = "Gagal memparse response dari Gemini API. Response mungkin tidak valid.";
     }
 
     // Fallback yang aman dan jelas jika terjadi kegagalan
+    console.warn("[AI] Non-Gemini error, using fallback:", errorMessage);
     return {
       city: null,
       days: null,
@@ -144,23 +211,39 @@ async function pingGemini(testPrompt = "balas 1 kata: ok") {
   }
 
   try {
-    const result = await model.generateContent({
-      contents: [testPrompt],
-    });
+    // Generate content dengan format sederhana
+    const result = await model.generateContent(testPrompt);
 
     const text = result?.response?.text?.() || "";
     return { text };
   } catch (e) {
+    // Logging detail untuk debugging
+    console.error("[AI] pingGemini error:", {
+      name: e?.name,
+      message: e?.message,
+      stack: e?.stack?.substring(0, 200),
+      constructor: e?.constructor?.name,
+    });
+
     // Deteksi apakah error berasal dari Gemini API
     const isGeminiError = 
       e.stack?.includes("generativelanguage.googleapis.com") ||
       e.message?.includes("generativelanguage.googleapis.com") ||
+      e.message?.includes("googleapis.com") ||
       e.name === "GoogleGenerativeAIError" ||
-      (e.constructor && e.constructor.name === "GoogleGenerativeAIError");
-
-    console.error("[AI] ping model=%s err=%s", MODEL_NAME, e?.message || "Unknown error");
+      e.name === "ClientError" ||
+      (e.constructor && e.constructor.name === "GoogleGenerativeAIError") ||
+      // Cek error code dari Gemini API
+      (e.code && (e.code === 400 || e.code === 401 || e.code === 403 || e.code === 404 || e.code === 429 || e.code >= 500)) ||
+      // Cek error message yang umum dari Gemini
+      e.message?.toLowerCase().includes("api key") ||
+      e.message?.toLowerCase().includes("quota") ||
+      e.message?.toLowerCase().includes("rate limit") ||
+      e.message?.toLowerCase().includes("model not found") ||
+      e.message?.toLowerCase().includes("invalid model");
 
     if (isGeminiError) {
+      console.error("[AI] Gemini API error detected in ping:", e.message);
       const aiError = new Error(`AI_ERROR: ${e.message || "Unknown Gemini API error"}`);
       aiError.originalError = e;
       throw aiError;

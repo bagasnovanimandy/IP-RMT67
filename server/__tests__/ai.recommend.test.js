@@ -1,3 +1,6 @@
+// Set GEMINI_DRY mode untuk testing
+process.env.GEMINI_DRY = "true";
+
 const request = require("supertest");
 const express = require("express");
 const { Op } = require("sequelize");

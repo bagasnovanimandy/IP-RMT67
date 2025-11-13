@@ -16,7 +16,8 @@ function rupiah(n) {
 }
 
 export default function RecommendationsPage() {
-  const q = useQuery().get("query") || "";
+  const queryParams = useQuery();
+  const q = queryParams.get("query") || "";
   const [loading, setLoading] = useState(true);
   const [reason, setReason] = useState("");
   const [filters, setFilters] = useState(null);
@@ -30,11 +31,21 @@ export default function RecommendationsPage() {
       setLoading(true);
       setErr("");
       try {
+        // AI akan mengekstrak originCity dari prompt
         const { data } = await serverApi.post("/ai/recommend", { prompt: q });
         if (!alive) return;
-        setReason(data?.reason || "");
+        
+        // Set reason dan filters
+        const reasonText = data?.reason || "";
+        setReason(reasonText);
         setFilters(data?.filters || null);
         setItems(data?.data || []);
+        
+        // Cek apakah reason mengandung error - jika ya, tampilkan sebagai warning bukan error
+        if (reasonText.includes("Error during analysis")) {
+          // Ini bukan error fatal, hanya warning karena masih ada fallback
+          setErr("");
+        }
       } catch (e) {
         if (!alive) return;
         const msg =
@@ -47,7 +58,13 @@ export default function RecommendationsPage() {
       }
     }
 
-    run();
+    if (q) {
+      run();
+    } else {
+      setLoading(false);
+      setErr("Prompt tidak boleh kosong");
+    }
+    
     return () => {
       alive = false;
     };
@@ -75,39 +92,67 @@ export default function RecommendationsPage() {
         <div className="alert alert-danger">{err}</div>
       ) : (
         <>
+          {/* Tampilkan warning jika ada error dalam analysis tapi tetap ada hasil */}
+          {reason && reason.includes("Error during analysis") && (
+            <div className="alert alert-warning mb-3">
+              <strong>Peringatan:</strong> {reason}
+              <br />
+              <small>Menggunakan fallback parsing untuk mengekstrak informasi.</small>
+            </div>
+          )}
+
           <div className="card border-0 shadow-sm mb-4">
             <div className="card-body">
-              <h2 className="h6 mb-2">Alasan singkat</h2>
+              <h2 className="h6 mb-2">Analisis AI</h2>
               <p className="mb-2">
-                {reason || "Analisis AI akan muncul di sini."}
+                {reason && !reason.includes("Error during analysis") ? (
+                  <span className="text-success">✓ {reason}</span>
+                ) : reason ? (
+                  <span className="text-muted">{reason}</span>
+                ) : (
+                  "Analisis AI akan muncul di sini."
+                )}
               </p>
 
               {filters && (
-                <div className="small text-muted">
-                  <span className="me-2">Filter:</span>
-                  {filters.city && (
-                    <span className="badge text-bg-light me-2">
-                      City: {filters.city}
+                <div className="small text-muted mt-3">
+                  <span className="me-2 fw-semibold">Filter yang diterapkan:</span>
+                  {filters.originCity && (
+                    <span className="badge text-bg-primary me-2">
+                      Lokasi Awal: {filters.originCity}
                     </span>
                   )}
-                  {filters.type && (
-                    <span className="badge text-bg-light me-2">
-                      Type: {filters.type}
+                  {filters.city && !filters.originCity && (
+                    <span className="badge text-bg-info me-2">
+                      Kota: {filters.city}
                     </span>
                   )}
                   {Number.isFinite(filters.people) && (
-                    <span className="badge text-bg-light me-2">
-                      People: {filters.people}
+                    <span className="badge text-bg-success me-2">
+                      Penumpang: {filters.people} orang
                     </span>
                   )}
-                  {Number.isFinite(filters.min) && (
-                    <span className="badge text-bg-light me-2">
-                      Min: Rp {rupiah(filters.min)}
+                  {filters.type && (
+                    <span className="badge text-bg-secondary me-2">
+                      Tipe: {filters.type}
                     </span>
                   )}
-                  {Number.isFinite(filters.max) && (
-                    <span className="badge text-bg-light">
-                      Max: Rp {rupiah(filters.max)}
+                  {Number.isFinite(filters.min) && Number.isFinite(filters.max) ? (
+                    <span className="badge text-bg-warning me-2">
+                      Harga: Rp {rupiah(filters.min)} - Rp {rupiah(filters.max)}/hari
+                    </span>
+                  ) : Number.isFinite(filters.min) ? (
+                    <span className="badge text-bg-warning me-2">
+                      Min: Rp {rupiah(filters.min)}/hari
+                    </span>
+                  ) : Number.isFinite(filters.max) ? (
+                    <span className="badge text-bg-warning">
+                      Max: Rp {rupiah(filters.max)}/hari
+                    </span>
+                  ) : null}
+                  {Number.isFinite(filters.days) && (
+                    <span className="badge text-bg-info">
+                      Durasi: {filters.days} hari
                     </span>
                   )}
                 </div>

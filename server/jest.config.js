@@ -5,14 +5,15 @@ module.exports = {
     "routes/**/*.js",
     "controllers/**/*.js",
     "helpers/**/*.js",
+    "middleware/**/*.js",
     "!**/node_modules/**",
   ],
   coverageThreshold: {
     global: {
-      branches: 70,
-      functions: 70,
-      lines: 70,
-      statements: 70,
+      branches: 95,
+      functions: 95,
+      lines: 95,
+      statements: 95,
     },
   },
 };

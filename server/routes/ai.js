@@ -55,8 +55,11 @@ router.post("/recommend", async (req, res, next) => {
       return res.status(400).json({ message: "Prompt tidak boleh kosong" });
     }
 
-    // 1) Analisis prompt via Gemini
+    // 1) Analisis prompt via Gemini (termasuk ekstraksi originCity)
     const ai = await analyzePrompt(prompt);
+    
+    // Ambil originCity dari AI analysis (bukan dari request body)
+    const originCity = ai?.originCity || undefined;
     
     // Fallback parsing sederhana jika AI gagal (dari notes error)
     const isAIFailed = ai?.notes?.includes("Error during analysis");
@@ -144,11 +147,14 @@ router.post("/recommend", async (req, res, next) => {
     }
 
     // 3) Include branch + filter city
+    // Prioritas: originCity (lokasi awal dari AI) > city (destination dari AI analysis)
+    // Jika originCity ada, gunakan untuk filter branch (cabang terdekat dengan lokasi awal)
+    const branchCity = originCity || city || undefined;
     const include = [
       {
         model: Branch,
         required: false,
-        where: city ? { city } : undefined,
+        where: branchCity ? { city: branchCity } : undefined,
         attributes: ["id", "name", "city", "address"],
       },
     ];
@@ -185,7 +191,8 @@ router.post("/recommend", async (req, res, next) => {
     return res.status(200).json({
       reason: ai?.notes || "Analisis AI",
       filters: {
-        city: city || null,
+        city: branchCity || null,
+        originCity: originCity || null,
         min: min ? +min : null,
         max: max ? +max : null,
         type: type || null,

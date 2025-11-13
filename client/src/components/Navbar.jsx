@@ -1,36 +1,15 @@
-import { Link, useLocation, useNavigate } from "react-router";
-import { useEffect, useState, useMemo } from "react";
+import { Link, useNavigate } from "react-router";
+import { useAppSelector, useAppDispatch } from "../store/hooks";
+import { logout } from "../store/slices/authSlice";
 import { alert } from "../lib/alert";
 
 export default function Navbar() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  const user = useMemo(() => {
-    try {
-      const userStr = localStorage.getItem("gcr_user");
-      const parsed = userStr ? JSON.parse(userStr) : null;
-      // Debug: Log user data untuk troubleshooting
-      if (parsed) {
-        console.log("👤 User data di Navbar:", {
-          name: parsed.name,
-          email: parsed.email,
-          pictureUrl: parsed.pictureUrl,
-          hasPictureUrl: !!parsed.pictureUrl
-        });
-      }
-      return parsed;
-    } catch {
-      return null;
-    }
-  }, [location.pathname]);
-
-  const isAdmin = useMemo(() => user?.role === "admin", [user]);
-
-  useEffect(() => {
-    setIsLoggedIn(!!localStorage.getItem("gcr_token"));
-  }, [location.pathname]);
+  const dispatch = useAppDispatch();
+  
+  // Get state from Redux
+  const { isAuthenticated, user } = useAppSelector((state) => state.auth);
+  const isAdmin = user?.role === "admin";
 
   const handleLogout = async () => {
     const result = await alert.confirm({
@@ -40,10 +19,7 @@ export default function Navbar() {
       cancelText: "Batal",
     });
     if (result.isConfirmed) {
-      localStorage.removeItem("gcr_token");
-      localStorage.removeItem("gcr_user");
-      localStorage.removeItem("gjt_token");
-      setIsLoggedIn(false);
+      dispatch(logout());
       await alert.toast("Berhasil logout", "success");
       navigate("/login");
     }
@@ -76,14 +52,14 @@ export default function Navbar() {
                 Home
               </Link>
             </li>
-            {isLoggedIn && !isAdmin && (
+            {isAuthenticated && !isAdmin && (
               <li className="nav-item">
                 <Link className="nav-link text-white" to="/mybookings" style={{ fontWeight: '500' }}>
                   My Bookings
                 </Link>
               </li>
             )}
-            {isLoggedIn && isAdmin && (
+            {isAuthenticated && isAdmin && (
               <li className="nav-item">
                 <Link className="nav-link text-white" to="/dashboard" style={{ fontWeight: '500' }}>
                   🎛️ Dashboard
@@ -93,7 +69,7 @@ export default function Navbar() {
           </ul>
 
           <div className="d-flex gap-2 align-items-center">
-            {!isLoggedIn ? (
+            {!isAuthenticated ? (
               <>
                 <Link className="btn btn-light" to="/login" style={{ fontWeight: '600', borderRadius: '8px' }}>
                   Login

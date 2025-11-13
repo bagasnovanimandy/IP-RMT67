@@ -1,30 +1,31 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router";
 import { GoogleLogin } from "@react-oauth/google";
+import { useAppDispatch } from "../store/hooks";
+import { loginSuccess, setLoading, setError } from "../store/slices/authSlice";
 import { serverApi } from "../helpers/serverApi";
 import { alert } from "../lib/alert";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const [email, setEmail] = useState("bagas@example.com");
   const [password, setPassword] = useState("bagas123");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoadingLocal] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setLoading(true);
+    setLoadingLocal(true);
+    dispatch(setLoading(true));
     try {
       const { data } = await serverApi.post("/login", { email, password });
       const token = data?.access_token;
       const user = data?.user;
       if (!token) throw new Error("Token not found");
-      localStorage.setItem("gjt_token", token);
-      localStorage.setItem("gcr_token", token);
-      if (user) {
-        console.log("Login - User data:", user);
-        console.log("Login - User role:", user.role);
-        localStorage.setItem("gcr_user", JSON.stringify(user));
-      }
+      
+      // Update Redux store
+      dispatch(loginSuccess({ token, user }));
+      
       await alert.success("Login successful");
       // Redirect based on role
       if (user?.role === "admin") {
@@ -33,28 +34,28 @@ export default function LoginPage() {
         navigate("/");
       }
     } catch (error) {
+      dispatch(setError(error.message));
       await alert.error(error.message);
     } finally {
-      setLoading(false);
+      setLoadingLocal(false);
+      dispatch(setLoading(false));
     }
   }
 
   async function handleGoogleLoginSuccess(credentialResponse) {
     try {
-      setLoading(true);
+      setLoadingLocal(true);
+      dispatch(setLoading(true));
       const { data } = await serverApi.post("/google-login", {
         id_token: credentialResponse.credential,
       });
       const token = data?.access_token;
       const user = data?.user;
       if (!token) throw new Error("Token not found");
-      localStorage.setItem("gjt_token", token);
-      localStorage.setItem("gcr_token", token);
-      if (user) {
-        console.log("Google Login - User data:", user);
-        console.log("📸 Picture URL:", user.pictureUrl || "Tidak ada");
-        localStorage.setItem("gcr_user", JSON.stringify(user));
-      }
+      
+      // Update Redux store
+      dispatch(loginSuccess({ token, user }));
+      
       await alert.success("Login dengan Google berhasil");
       // Redirect based on role
       if (user?.role === "admin") {
@@ -64,9 +65,11 @@ export default function LoginPage() {
       }
     } catch (error) {
       console.error("Google login error:", error);
+      dispatch(setError(error.message || "Google login gagal"));
       await alert.error(error.message || "Google login gagal");
     } finally {
-      setLoading(false);
+      setLoadingLocal(false);
+      dispatch(setLoading(false));
     }
   }
 
@@ -107,8 +110,8 @@ export default function LoginPage() {
                 />
               </div>
 
-              <button className="btn btn-primary w-100" disabled={loading}>
-                {loading ? "Signing in..." : "Sign In"}
+              <button className="btn btn-primary w-100" disabled={loadingLocal}>
+                {loadingLocal ? "Signing in..." : "Sign In"}
               </button>
             </form>
 

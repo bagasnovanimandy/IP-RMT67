@@ -83,8 +83,12 @@ export default function HomePage() {
     e.preventDefault();
     const query = aiPrompt.trim();
     if (!query) return;
-    // Untuk sekarang kita kirim via querystring; nanti endpoint Gemini bisa dipanggil dari halaman rekomendasi.
-    navigate(`/recommendations?query=${encodeURIComponent(query)}`);
+    
+    // Build query string - AI akan mengekstrak originCity dari prompt
+    const params = new URLSearchParams();
+    params.set("query", query);
+    
+    navigate(`/recommendations?${params.toString()}`);
   }
 
   return (
@@ -93,20 +97,26 @@ export default function HomePage() {
       <div className="hero-card">
         <h2 className="h4 mb-3">🤖 AI Rekomendasi Perjalanan (Gemini)</h2>
         <p className="mb-4" style={{ opacity: 0.95 }}>
-          Sampaikan keperluan travellingmu di sini (misal: "keluarga 6 orang,
+          Sampaikan keperluan travellingmu di sini (misal: "berangkat dari jakarta, keluarga 6 orang,
           3 hari di Bandung, butuh bagasi besar, budget 400–600 ribu/hari").
         </p>
 
         <form onSubmit={handleAskAI}>
           <div className="mb-3">
+            <label className="form-label small text-muted mb-1">
+              <strong>Kebutuhan Perjalanan</strong>
+            </label>
             <textarea
               className="form-control"
               rows="3"
-              placeholder="Tulis kebutuhan perjalananmu..."
+              placeholder='Contoh: "berangkat dari jakarta, keluarga 6 orang, 3 hari di Bandung, butuh bagasi besar, budget 400–600 ribu/hari"'
               value={aiPrompt}
               onChange={(e) => setAiPrompt(e.target.value)}
               style={{ resize: 'none' }}
             />
+            <small className="text-muted d-block mt-1" style={{ fontSize: '0.75rem' }}>
+              AI akan menganalisis lokasi awal Anda dan memberikan rekomendasi cabang terdekat
+            </small>
           </div>
           <div className="d-flex gap-2 flex-wrap">
             <button type="submit" className="btn btn-light">
