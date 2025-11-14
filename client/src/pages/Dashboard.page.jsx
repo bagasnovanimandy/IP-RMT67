@@ -19,6 +19,27 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [vehicleLoading, setVehicleLoading] = useState(false);
   const [bookingLoading, setBookingLoading] = useState(false);
+  
+  // Form state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [branches, setBranches] = useState([]);
+  const [formData, setFormData] = useState({
+    BranchId: "",
+    name: "",
+    brand: "",
+    type: "",
+    plateNumber: "",
+    seat: "",
+    transmission: "",
+    fuelType: "",
+    year: "",
+    dailyPrice: "",
+    status: "AVAILABLE",
+    description: "",
+  });
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const user = useMemo(() => {
     try {
@@ -50,6 +71,7 @@ export default function DashboardPage() {
       return;
     }
     loadData();
+    loadBranches();
   }, [isLoggedIn, isAdmin, navigate, user]);
 
   async function loadData() {
@@ -183,6 +205,117 @@ export default function DashboardPage() {
       return Promise.reject(new Error(errorMessage));
     } finally {
       setBookingLoading(false);
+    }
+  }
+
+  async function loadBranches() {
+    try {
+      const response = await serverApi.get("/branches");
+      setBranches(response.data || []);
+    } catch (error) {
+      console.error("Error loading branches:", error);
+    }
+  }
+
+  function handleOpenAddModal() {
+    setShowAddModal(true);
+    setFormData({
+      BranchId: "",
+      name: "",
+      brand: "",
+      type: "",
+      plateNumber: "",
+      seat: "",
+      transmission: "",
+      fuelType: "",
+      year: "",
+      dailyPrice: "",
+      status: "AVAILABLE",
+      description: "",
+    });
+    setImageFile(null);
+    setImagePreview(null);
+  }
+
+  function handleCloseAddModal() {
+    setShowAddModal(false);
+    setFormData({
+      BranchId: "",
+      name: "",
+      brand: "",
+      type: "",
+      plateNumber: "",
+      seat: "",
+      transmission: "",
+      fuelType: "",
+      year: "",
+      dailyPrice: "",
+      status: "AVAILABLE",
+      description: "",
+    });
+    setImageFile(null);
+    setImagePreview(null);
+  }
+
+  function handleInputChange(e) {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  }
+
+  function handleImageChange(e) {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  async function handleSubmitAddVehicle(e) {
+    e.preventDefault();
+    setSubmitting(true);
+
+    try {
+      // Validate required fields
+      if (!formData.BranchId || !formData.name || !formData.brand || !formData.type || 
+          !formData.plateNumber || !formData.seat || !formData.transmission || 
+          !formData.fuelType || !formData.year || !formData.dailyPrice) {
+        await alert.error("Mohon lengkapi semua field yang wajib diisi");
+        setSubmitting(false);
+        return;
+      }
+
+      // Create vehicle
+      const payload = {
+        ...formData,
+        BranchId: parseInt(formData.BranchId),
+        seat: parseInt(formData.seat),
+        year: parseInt(formData.year),
+        dailyPrice: parseInt(formData.dailyPrice),
+      };
+
+      const response = await serverApi.post("/admin/vehicles", payload);
+      const vehicleId = response.data?.vehicle?.id;
+
+      // Upload image if provided
+      if (imageFile && vehicleId) {
+        const formDataImage = new FormData();
+        formDataImage.append("image", imageFile);
+        
+        await serverApi.patch(`/admin/vehicles/${vehicleId}/image`, formDataImage);
+      }
+
+      await alert.toast("Kendaraan berhasil ditambahkan", "success");
+      handleCloseAddModal();
+      await loadVehicles();
+    } catch (error) {
+      const errorMessage = error?.response?.data?.message || error?.message || "Gagal menambahkan kendaraan";
+      await alert.error(errorMessage);
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -342,7 +475,7 @@ export default function DashboardPage() {
             <h5 className="mb-0">Daftar Kendaraan</h5>
             <button
               className="btn btn-primary btn-sm"
-              onClick={() => alert.info("Fitur tambah kendaraan akan segera tersedia")}
+              onClick={handleOpenAddModal}
             >
               + Tambah Kendaraan
             </button>
@@ -482,6 +615,283 @@ export default function DashboardPage() {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Add Vehicle Modal */}
+      {showAddModal && (
+        <div
+          className="modal show d-block"
+          tabIndex="-1"
+          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+        >
+          <div className="modal-dialog modal-lg modal-dialog-scrollable">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Tambah Kendaraan Baru</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={handleCloseAddModal}
+                  disabled={submitting}
+                ></button>
+              </div>
+              <form onSubmit={handleSubmitAddVehicle}>
+                <div className="modal-body">
+                  <div className="row g-3">
+                    {/* Branch */}
+                    <div className="col-md-6">
+                      <label className="form-label">
+                        Cabang <span className="text-danger">*</span>
+                      </label>
+                      <select
+                        className="form-select"
+                        name="BranchId"
+                        value={formData.BranchId}
+                        onChange={handleInputChange}
+                        required
+                      >
+                        <option value="">Pilih Cabang</option>
+                        {branches.map((branch) => (
+                          <option key={branch.id} value={branch.id}>
+                            {branch.name} - {branch.city}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Name */}
+                    <div className="col-md-6">
+                      <label className="form-label">
+                        Nama Kendaraan <span className="text-danger">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleInputChange}
+                        placeholder="Contoh: Toyota Avanza"
+                        required
+                      />
+                    </div>
+
+                    {/* Brand */}
+                    <div className="col-md-6">
+                      <label className="form-label">
+                        Merek <span className="text-danger">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        name="brand"
+                        value={formData.brand}
+                        onChange={handleInputChange}
+                        placeholder="Contoh: Toyota"
+                        required
+                      />
+                    </div>
+
+                    {/* Type */}
+                    <div className="col-md-6">
+                      <label className="form-label">
+                        Tipe <span className="text-danger">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        name="type"
+                        value={formData.type}
+                        onChange={handleInputChange}
+                        placeholder="Contoh: MPV"
+                        required
+                      />
+                    </div>
+
+                    {/* Plate Number */}
+                    <div className="col-md-6">
+                      <label className="form-label">
+                        Nomor Plat <span className="text-danger">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        name="plateNumber"
+                        value={formData.plateNumber}
+                        onChange={handleInputChange}
+                        placeholder="Contoh: B 1234 XYZ"
+                        required
+                      />
+                    </div>
+
+                    {/* Seat */}
+                    <div className="col-md-6">
+                      <label className="form-label">
+                        Jumlah Kursi <span className="text-danger">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        className="form-control"
+                        name="seat"
+                        value={formData.seat}
+                        onChange={handleInputChange}
+                        min="1"
+                        max="50"
+                        required
+                      />
+                    </div>
+
+                    {/* Transmission */}
+                    <div className="col-md-6">
+                      <label className="form-label">
+                        Transmisi <span className="text-danger">*</span>
+                      </label>
+                      <select
+                        className="form-select"
+                        name="transmission"
+                        value={formData.transmission}
+                        onChange={handleInputChange}
+                        required
+                      >
+                        <option value="">Pilih Transmisi</option>
+                        <option value="Manual">Manual</option>
+                        <option value="Automatic">Automatic</option>
+                      </select>
+                    </div>
+
+                    {/* Fuel Type */}
+                    <div className="col-md-6">
+                      <label className="form-label">
+                        Jenis Bahan Bakar <span className="text-danger">*</span>
+                      </label>
+                      <select
+                        className="form-select"
+                        name="fuelType"
+                        value={formData.fuelType}
+                        onChange={handleInputChange}
+                        required
+                      >
+                        <option value="">Pilih Bahan Bakar</option>
+                        <option value="Bensin">Bensin</option>
+                        <option value="Solar">Solar</option>
+                        <option value="Listrik">Listrik</option>
+                        <option value="Hybrid">Hybrid</option>
+                      </select>
+                    </div>
+
+                    {/* Year */}
+                    <div className="col-md-6">
+                      <label className="form-label">
+                        Tahun <span className="text-danger">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        className="form-control"
+                        name="year"
+                        value={formData.year}
+                        onChange={handleInputChange}
+                        min="1900"
+                        max={new Date().getFullYear() + 1}
+                        required
+                      />
+                    </div>
+
+                    {/* Daily Price */}
+                    <div className="col-md-6">
+                      <label className="form-label">
+                        Harga per Hari (Rp) <span className="text-danger">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        className="form-control"
+                        name="dailyPrice"
+                        value={formData.dailyPrice}
+                        onChange={handleInputChange}
+                        min="0"
+                        required
+                      />
+                    </div>
+
+                    {/* Status */}
+                    <div className="col-md-6">
+                      <label className="form-label">
+                        Status <span className="text-danger">*</span>
+                      </label>
+                      <select
+                        className="form-select"
+                        name="status"
+                        value={formData.status}
+                        onChange={handleInputChange}
+                        required
+                      >
+                        <option value="AVAILABLE">Tersedia</option>
+                        <option value="UNAVAILABLE">Tidak Tersedia</option>
+                        <option value="MAINTENANCE">Maintenance</option>
+                      </select>
+                    </div>
+
+                    {/* Description */}
+                    <div className="col-12">
+                      <label className="form-label">Deskripsi</label>
+                      <textarea
+                        className="form-control"
+                        name="description"
+                        value={formData.description}
+                        onChange={handleInputChange}
+                        rows="3"
+                        placeholder="Deskripsi kendaraan (opsional)"
+                      />
+                    </div>
+
+                    {/* Image Upload */}
+                    <div className="col-12">
+                      <label className="form-label">Gambar Kendaraan</label>
+                      <input
+                        type="file"
+                        className="form-control"
+                        accept="image/jpeg,image/png,image/webp,image/jpg"
+                        onChange={handleImageChange}
+                      />
+                      {imagePreview && (
+                        <div className="mt-2">
+                          <img
+                            src={imagePreview}
+                            alt="Preview"
+                            style={{
+                              maxWidth: "200px",
+                              maxHeight: "200px",
+                              objectFit: "cover",
+                              borderRadius: "8px",
+                            }}
+                          />
+                        </div>
+                      )}
+                      <small className="text-muted">
+                        Format: JPG, PNG, WebP. Maksimal 2MB
+                      </small>
+                    </div>
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={handleCloseAddModal}
+                    disabled={submitting}
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={submitting}
+                  >
+                    {submitting ? "Menyimpan..." : "Simpan"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         </div>
       )}
     </div>

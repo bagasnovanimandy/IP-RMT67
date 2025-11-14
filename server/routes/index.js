@@ -18,6 +18,7 @@ router.post("/login", UserController.login);
 router.post("/google-login", UserController.googleLogin);
 router.get("/vehicles", VehicleController.list);
 router.get("/vehicles/:id", VehicleController.detail);
+router.get("/branches", VehicleController.listBranches);
 
 // Midtrans webhook (bypasses authentication - must be before auth middleware)
 router.post("/payments/midtrans/notification", PaymentController.handleNotification);

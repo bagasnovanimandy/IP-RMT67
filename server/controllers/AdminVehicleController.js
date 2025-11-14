@@ -1,5 +1,6 @@
 const { Vehicle, Branch } = require("../models");
 const { Op } = require("sequelize");
+const { uploadBuffer } = require("../helpers/cloudinary");
 
 class AdminVehicleController {
   // GET /api/admin/vehicles?q=&page=&limit=

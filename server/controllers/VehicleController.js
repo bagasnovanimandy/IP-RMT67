@@ -95,6 +95,19 @@ class VehicleController {
       next(err);
     }
   }
+
+  // GET /api/branches
+  static async listBranches(req, res, next) {
+    try {
+      const branches = await Branch.findAll({
+        attributes: ["id", "name", "city", "address"],
+        order: [["city", "ASC"], ["name", "ASC"]],
+      });
+      res.status(200).json(branches);
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = VehicleController;
