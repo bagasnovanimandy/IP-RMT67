@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
 
-const JWT_SECRET = "galindo_car_rental_secret";
+const JWT_SECRET = process.env.JWT_SECRET;
 
 function signToken(payload) {
   return jwt.sign(payload, JWT_SECRET);
