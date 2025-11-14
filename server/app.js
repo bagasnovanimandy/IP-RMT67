@@ -12,13 +12,33 @@ const app = express();
 // CORS configuration - allow Firebase domains and local development
 app.use(
   cors({
-    origin: [
-      "https://galindo-client.web.app",
-      "https://galindo-client.firebaseapp.com",
-      "http://localhost:5173", // Vite dev server
-      "http://localhost:3000",
-      "https://bagas14258.duckdns.org",
-    ],
+    origin: function (origin, callback) {
+      // Allow requests with no origin (mobile apps, Postman, curl, etc.)
+      if (!origin) return callback(null, true);
+      
+      const allowedOrigins = [
+        "https://galindo-client.web.app",
+        "https://galindo-client.firebaseapp.com",
+        "https://galindojmtransport-f87dc.web.app",
+        "https://galindojmtransport-f87dc.firebaseapp.com",
+        "http://localhost:5173", // Vite dev server
+        "http://localhost:3000",
+        "https://bagas14258.duckdns.org",
+      ];
+      
+      // Allow any Firebase hosting domain (*.web.app or *.firebaseapp.com)
+      if (origin.includes(".web.app") || origin.includes(".firebaseapp.com")) {
+        return callback(null, true);
+      }
+      
+      // Check if origin is in allowed list
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        console.warn(`⚠️ CORS blocked origin: ${origin}`);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
