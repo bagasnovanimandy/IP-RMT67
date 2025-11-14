@@ -10,16 +10,13 @@ const app = express();
 
 // Middlewares
 // CORS configuration - allow Firebase domains and local development
-// Using explicit origin string to avoid "Multiple Origin Not Allowed" error
-const allowedOrigins = [
-  "https://galindo-client.web.app",
-  "https://galindo-client.firebaseapp.com",
-  "https://galindojmtransport-f87dc.web.app",
-  "https://galindojmtransport-f87dc.firebaseapp.com",
-  "http://localhost:5173", // Vite dev server
-  "http://localhost:3000",
-  "https://bagas14258.duckdns.org",
-];
+const allowedOrigins = (
+  process.env.CORS_ORIGIN ||
+  "https://galindo-client.web.app, https://galindo-client.firebaseapp.com, https://galindojmtransport-f87dc.web.app, https://galindojmtransport-f87dc.firebaseapp.com, http://localhost:5173, http://localhost:3000, https://bagas14258.duckdns.org"
+)
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 app.use(
   cors({
@@ -33,19 +30,21 @@ app.use(
       }
       
       // Check if origin is in allowed list
-      if (allowedOrigins.indexOf(origin) !== -1) {
-        callback(null, true);
-      } else {
-        console.warn(`⚠️ CORS blocked origin: ${origin}`);
-        callback(new Error("Not allowed by CORS"));
+      if (allowedOrigins.includes("*") || allowedOrigins.includes(origin)) {
+        return callback(null, true);
       }
+      
+      return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
-    // Explicitly set options to prevent duplicate headers
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    exposedHeaders: [],
-    maxAge: 86400, // 24 hours
+    allowedHeaders: [
+      "Origin",
+      "X-Requested-With",
+      "Content-Type",
+      "Accept",
+      "Authorization",
+    ],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   })
 );
 app.use(express.json());
