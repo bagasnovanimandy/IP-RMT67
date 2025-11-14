@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon app.js",
-    "start": "node app.js",
+    "dev": "nodemon bin/www",
+    "start": "node bin/www",
     "sequelize": "sequelize",
     "test": "node test-runner.js",
     "test:watch": "jest --watch",
