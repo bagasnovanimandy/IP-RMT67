@@ -9,7 +9,19 @@ const aiRouter = require("./routes/ai");
 const app = express();
 
 // Middlewares
-app.use(cors());
+// CORS configuration - allow Firebase domains and local development
+app.use(
+  cors({
+    origin: [
+      "https://galindo-client.web.app",
+      "https://galindo-client.firebaseapp.com",
+      "http://localhost:5173", // Vite dev server
+      "http://localhost:3000",
+      "https://bagas14258.duckdns.org",
+    ],
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
