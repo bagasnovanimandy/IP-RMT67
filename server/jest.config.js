@@ -16,6 +16,8 @@ module.exports = {
       statements: 95,
     },
   },
+  // Setup files before running tests
+  setupFilesAfterEnv: ["<rootDir>/__tests__/setup.js"],
   // Clear mocks and timers after each test
   clearMocks: true,
   resetMocks: true,
