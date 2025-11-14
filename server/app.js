@@ -23,17 +23,20 @@ app.use(
     origin: function (origin, callback) {
       // Allow requests with no origin (mobile apps, Postman, curl, etc.)
       if (!origin) return callback(null, true);
-      
+
       // Allow any Firebase hosting domain (*.web.app or *.firebaseapp.com)
-      if (origin.includes(".web.app") || origin.includes(".firebaseapp.com")) {
+      if (
+        origin.includes(".web.app") ||
+        origin.includes(".firebaseapp.com" || origin.includes(".duckdns.org"))
+      ) {
         return callback(null, true);
       }
-      
+
       // Check if origin is in allowed list
       if (allowedOrigins.includes("*") || allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-      
+
       return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
