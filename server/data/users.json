@@ -1,0 +1,22 @@
+[
+  {
+    "name": "Admin Galindo",
+    "email": "admin@galindorental.com",
+    "password": "admin123",
+    "role": "admin",
+    "phoneNumber": "+62 81234567890",
+    "pictureUrl": null,
+    "createdAt": "2025-11-11T10:00:00.000Z",
+    "updatedAt": "2025-11-11T10:00:00.000Z"
+  },
+  {
+    "name": "Bagas Novan",
+    "email": "bagas@example.com",
+    "password": "bagas123",
+    "role": "customer",
+    "phoneNumber": "+62 81122334455",
+    "pictureUrl": "https://i.pravatar.cc/150?img=3",
+    "createdAt": "2025-11-11T10:00:00.000Z",
+    "updatedAt": "2025-11-11T10:00:00.000Z"
+  }
+]

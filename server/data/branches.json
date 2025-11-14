@@ -1,0 +1,22 @@
+[
+  {
+    "name": "Galindo Car Rental - Jakarta",
+    "address": "Jl. Gatot Subroto No. 123, Jakarta Selatan",
+    "city": "Jakarta",
+    "latitude": -6.238765,
+    "longitude": 106.830123,
+    "phoneNumber": "+62 2122334455",
+    "createdAt": "2025-11-11T10:00:00.000Z",
+    "updatedAt": "2025-11-11T10:00:00.000Z"
+  },
+  {
+    "name": "Galindo Car Rental - Bandung",
+    "address": "Jl. Pasteur No. 45, Bandung",
+    "city": "Bandung",
+    "latitude": -6.88997,
+    "longitude": 107.60981,
+    "phoneNumber": "+62 2222334455",
+    "createdAt": "2025-11-11T10:00:00.000Z",
+    "updatedAt": "2025-11-11T10:00:00.000Z"
+  }
+]
